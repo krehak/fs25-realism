@@ -1,6 +1,6 @@
 # Realism — Farming Simulator 25
 
-A script-only realism mod that removes arcade conveniences to make *Farming Simulator 25* more authentic and harder.
+A script-only realism mod that strips away arcade conveniences and forces you to live with the consequences of farm life. No new vehicles, no new buildings, no textures — just gameplay changes that make *Farming Simulator 25* feel like real work.
 
 ## Download & install
 
@@ -14,18 +14,35 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 ## Features
 
--   **Realism start (new games)** — on the first load of a new save, an intro explains the mod and you begin the hard way: $15,000, no farm or equipment, one free car, and you claim your first field for free by walking onto it. Existing saves are untouched.
--   **No teleporting** — `Tab` no longer switches vehicles, you can't jump into a vehicle from the map unless you're next to it, and the map's "Visit" for fields/buildings won't teleport you. Walk or drive everywhere.
--   **Seasonal greenhouses** — greenhouse output depends on the season and weather: full in summer, half in winter, with a bonus on sunny days and a penalty in rain/snow.
--   **Inflation** — every year a random rate (1.5–5.5%) is set and compounds. It applies to buying *and* selling, so prices drift up over time and you can invest by storing crops to sell later at higher prices.
--   **Store-only production** — production buildings can't auto-sell or auto-distribute. Goods pile up in storage and you haul them yourself.
--   **Bulk trade bonuses** — sell a lot at once for up to +10% extra money; buy fuel/fertilizer/seeds in bulk for up to -8% off.
--   **Balancer** — locks realism settings on: economy difficulty stays Normal (no Easy), and traffic, seasonal growth, snow, crop destruction, plowing, field stones, lime, weeds and disasters are forced on. AI helpers also never auto-buy fuel/seeds/fertilizer/manure — you refill them yourself.
--   **AI crop damage** — hired workers flatten crops and leave tracks with the wrong tyres, just like the player; tyre choice matters for helpers too.
--   **Sleep schedule** — you can only sleep from 21:00 (no skipping the day) *unless* you're already tired. After 16 hours awake you get tired (warning, fade-to-black, yawn) and can then sleep any time; sleeping under 6 hours leaves you sleep-deprived and still tired until you get a proper rest.
--   **Chainsaw stump removal** — cut into a leftover stump with the chainsaw and it's removed; clean up felled woodland with no special equipment.
+-   **Realism intro (new games)** — on the first load of a brand-new save, a short intro dialog explains the rules you signed up for. Your starting money, vehicle and field are left to whatever the map / career preset you picked provides — the mod doesn't change them. You build your farm from there, the hard way. Existing saves are never touched, and the intro never re-runs.
 
-More features will be added in future updates.
+-   **No teleporting** — `Tab` / `Shift+Tab` no longer switch between vehicles, you can't jump into a vehicle picked from the map unless you're standing next to it, and the map's "Visit" / "Go To" for fields and buildings won't teleport you. Walk up and press `E` as normal. Plan your routes and park sensibly.
+
+-   **Seasonal greenhouses** — greenhouse output scales with the time of year and the weather instead of running at a constant rate:
+    -   Summer 100%, Spring / Fall 75%, Winter 50%
+    -   Weather on top: sunny +20%, rain −10%, snow −30%, hail −40%
+
+    Plan your winter cash flow accordingly.
+
+-   **Inflation** — every year a rate between **1.5% and 5.5%** is set and held for that whole year, compounding across years. It applies to *both* buying and selling: inputs, fuel and machinery get pricier, but crops and goods are worth more too — so you can invest by storing crops and selling them later at the higher, inflated price. The current year's rate is announced on screen.
+
+-   **Store-only production** — production buildings can no longer auto-sell or auto-distribute. Every output is forced to "store" mode and piles up in the building's storage; to turn it into money you drive a trailer over, load it, and haul it to a sell point or another production yourself.
+
+-   **Bulk trade bonuses** — moving goods in volume pays off, like a real wholesale deal:
+    -   **Selling:** +1% at 25,000 L, ramping to **+10%** at 100,000 L or more.
+    -   **Buying** (fertilizer, lime, seeds, herbicide, fuel): −1% at 1,000 L, ramping to **−8%** at 10,000 L or more.
+
+    Bonuses accumulate per station and fill type over one continuous deal.
+
+-   **Balancer (locked realism settings)** — realism-critical settings can't be softened. Economy difficulty is forced to Normal (no Easy), and traffic, seasonal growth, snow, crop destruction, periodical plowing, required lime, weeds and disasters are all forced on — change them in the menu and they revert within seconds. AI helpers also never auto-buy fuel, seeds, fertilizer or manure/slurry; you refill their vehicles yourself. **Field stones** are the exception: they're turned *off* by default when you start a new game, but you're free to switch them back on and they'll stay on.
+
+-   **AI crop damage** — hired workers no longer get a free pass over your crops. An AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks just like you do — so tyre choice matters for helpers too.
+
+-   **Sleep schedule** — you can only sleep from **21:00** (no napping through the day to skip it) *unless* you're already tired. After **16 hours** awake you get tired — a warning, a short fade-to-black and a yawn — and can then sleep any time to recover. Sleeping less than **6 hours** leaves you sleep-deprived and still tired until you get a proper rest.
+
+-   **Chainsaw stump removal** — no more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it's removed — no expensive stump grinder needed.
+
+More realism features will be added in future updates, each as a self-contained module.
 
 ## Compatibility
 
