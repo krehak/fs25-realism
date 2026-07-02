@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.0.0.0)'
+        required: true
+        default: '1.0.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and publish mod zip
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version and tag
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+            TAG="v${VERSION}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          fi
+
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Version '$VERSION' does not match FS25's expected X.Y.Z.W pattern" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION ($TAG)"
+
+      - name: Stamp version into modDesc.xml
+        run: |
+          sed -i "s|<version>[^<]*</version>|<version>${{ steps.ver.outputs.version }}</version>|" src/modDesc.xml
+          grep '<version>' src/modDesc.xml
+
+      - name: Build mod zip
+        run: |
+          mkdir -p dist
+          cd src
+          zip -r "../dist/FS25_Realism.zip" . \
+            -x '.DS_Store' \
+            -x '**/.DS_Store'
+          cd ..
+          ls -lh dist/
+
+      - name: Verify zip contents
+        run: |
+          unzip -l dist/FS25_Realism.zip
+          unzip -p dist/FS25_Realism.zip modDesc.xml | head -20
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FS25_Realism-${{ steps.ver.outputs.version }}
+          path: dist/FS25_Realism.zip
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Realism ${{ steps.ver.outputs.tag }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: dist/FS25_Realism.zip
