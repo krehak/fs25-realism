@@ -29,6 +29,8 @@ SleepSchedule.MIN_SLEEP_HOURS = 6
 SleepSchedule.FADE_DURATION_MS = 2000
 SleepSchedule.FADE_MAX_ALPHA = 0.8
 SleepSchedule.SLEEP_JUMP_HOURS = 2.0
+SleepSchedule.UNARMED_SLEEP_JUMP_HOURS = 3.0
+SleepSchedule.SLEEP_ARMED_WINDOW_MS = 300000
 SleepSchedule.WAKE_GRACE_MS = 2500
 SleepSchedule.TIRED_REPEAT_MS = 60000
 
@@ -40,6 +42,8 @@ SleepSchedule.lastTiredEffectTime = nil
 SleepSchedule.fadeStart = nil
 SleepSchedule.overlay = nil
 SleepSchedule.overlayTried = false
+SleepSchedule.sleepArmedUntil = 0
+SleepSchedule.preSleepHour = nil
 
 local function log(message)
     if Realism ~= nil and Realism.log ~= nil then
@@ -152,6 +156,33 @@ local function fireTiredEffects()
     playYawn()
 end
 
+-- Reset the awake timer after a detected sleep. sleptHours may be nil when
+-- the slept duration could not be measured, in which case we assume a full
+-- rest so the player is never left falsely exhausted right after waking.
+local function applyWake(now, sleptHours)
+    SleepSchedule.lastWakeGameHours = now
+    SleepSchedule.lastTiredEffectTime = nil
+    SleepSchedule.fadeStart = nil
+    SleepSchedule.graceUntil = (g_time or 0) + SleepSchedule.WAKE_GRACE_MS
+    SleepSchedule.sleepArmedUntil = 0
+    SleepSchedule.preSleepHour = nil
+
+    if sleptHours == nil then
+        SleepSchedule.sleepDeprived = false
+        log("Woke up (duration unknown) — treated as rested")
+
+        return
+    end
+
+    SleepSchedule.sleepDeprived = sleptHours < SleepSchedule.MIN_SLEEP_HOURS
+
+    if SleepSchedule.sleepDeprived then
+        log(string.format("Short sleep (%.1fh) — still tired", sleptHours))
+    else
+        log(string.format("Rested (%.1fh sleep)", sleptHours))
+    end
+end
+
 local function guardedShowDialog(self, superFunc, ...)
     local hour = getDayHour()
     local lateEnough = (hour == nil) or (hour >= SleepSchedule.SLEEP_EARLIEST_HOUR)
@@ -161,6 +192,12 @@ local function guardedShowDialog(self, superFunc, ...)
 
         return
     end
+
+    -- Arm sleep detection: the player confirmed the dialog, so the next big
+    -- time change is the sleep. Record the hour now so the slept duration can
+    -- be measured from the hour-of-day, immune to day-counter timing.
+    SleepSchedule.preSleepHour = hour
+    SleepSchedule.sleepArmedUntil = (g_time or 0) + SleepSchedule.SLEEP_ARMED_WINDOW_MS
 
     return superFunc(self, ...)
 end
@@ -172,25 +209,39 @@ function SleepSchedule:update(dt)
         return
     end
 
-    if SleepSchedule.prevGameHours ~= nil then
+    local inGrace = (g_time or 0) < (SleepSchedule.graceUntil or 0)
+
+    -- Sleep detection is skipped during the wake grace window so the
+    -- day-counter settling into place right after waking can't be mistaken
+    -- for a second sleep.
+    if SleepSchedule.prevGameHours ~= nil and not inGrace then
         local delta = nowGameHours - SleepSchedule.prevGameHours
+        local armed = (g_time or 0) < (SleepSchedule.sleepArmedUntil or 0)
 
-        -- A large forward jump means a sleep happened; the jump size is
-        -- how long the player slept.
-        if delta > SleepSchedule.SLEEP_JUMP_HOURS then
-            SleepSchedule.lastWakeGameHours = nowGameHours
-            SleepSchedule.lastTiredEffectTime = nil
-            SleepSchedule.graceUntil = (g_time or 0) + SleepSchedule.WAKE_GRACE_MS
+        -- The reliable signal is that the player just confirmed the sleep
+        -- dialog: any sizeable time change while armed is the sleep. A jump
+        -- can come out negative when the day counter lags the wrap of the
+        -- clock past midnight, so both directions count. The slept duration
+        -- is read from the hour-of-day, immune to that day-counter timing.
+        if armed and (delta > SleepSchedule.SLEEP_JUMP_HOURS or delta < -SleepSchedule.SLEEP_JUMP_HOURS) then
+            local nowHour = getDayHour()
+            local sleptHours = nil
 
-            -- A full rest (>= MIN_SLEEP_HOURS) clears tiredness; a shorter
-            -- sleep leaves the player sleep-deprived and still tired.
-            SleepSchedule.sleepDeprived = delta < SleepSchedule.MIN_SLEEP_HOURS
+            if nowHour ~= nil and SleepSchedule.preSleepHour ~= nil then
+                sleptHours = (nowHour - SleepSchedule.preSleepHour) % 24
 
-            if SleepSchedule.sleepDeprived then
-                log(string.format("Short sleep (%.1fh) — still tired", delta))
-            else
-                log(string.format("Rested (%.1fh sleep)", delta))
+                if sleptHours <= 0.01 then
+                    sleptHours = 24
+                end
             end
+
+            applyWake(nowGameHours, sleptHours)
+
+        -- Fallback for a sleep that never went through our dialog hook (some
+        -- maps sleep via a bed directly). Only a large forward jump counts and
+        -- it always clears tiredness, so the player is never falsely exhausted.
+        elseif delta > SleepSchedule.UNARMED_SLEEP_JUMP_HOURS then
+            applyWake(nowGameHours, nil)
         end
     end
 
