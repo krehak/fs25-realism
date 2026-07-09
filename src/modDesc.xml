@@ -45,9 +45,6 @@ Features:
 - AI crop damage
   Hired workers no longer get a free pass over your crops. Like you, an AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks as it drives — so tyre choice matters for helpers too.
 
-- Sleep schedule
-  Sleeping is only allowed from 21:00 — no napping through the day to skip it — unless you are already tired. After 16 hours awake you get tired (a warning, a short fade-to-black and a yawn sound), and once tired you can sleep at any time to recover. Sleeping less than 6 hours leaves you sleep-deprived and still tired, so you need a proper rest to fully recover.
-
 - Chainsaw stump removal
   No more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it is removed — clean up your woodland with the tool you already have, no expensive stump grinder needed.
 
@@ -73,7 +70,6 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
         <sourceFile filename="scripts/ProductionStoreOnly.lua" />
         <sourceFile filename="scripts/BulkTrade.lua" />
         <sourceFile filename="scripts/Balancer.lua" />
-        <sourceFile filename="scripts/SleepSchedule.lua" />
         <sourceFile filename="scripts/StumpCutter.lua" />
         <sourceFile filename="scripts/AICropDamage.lua" />
         <sourceFile filename="scripts/GameStart.lua" />
@@ -90,7 +86,7 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
             <en>Welcome to Realism</en>
         </text>
         <text name="realism_intro_body">
-            <en>This mod makes farming authentic and hard. No teleporting, real sleep, inflation, no auto-selling, locked realism settings. Your starting money, vehicle and field are whatever the map you picked gives you — build your farm from there, the hard way.</en>
+            <en>This mod makes farming authentic and hard. No teleporting, inflation, no auto-selling, locked realism settings. Your starting money, vehicle and field are whatever the map you picked gives you — build your farm from there, the hard way.</en>
         </text>
     </l10n>
 </modDesc>

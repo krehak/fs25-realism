@@ -38,8 +38,6 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 -   **AI crop damage** — hired workers no longer get a free pass over your crops. An AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks just like you do — so tyre choice matters for helpers too.
 
--   **Sleep schedule** — you can only sleep from **21:00** (no napping through the day to skip it) *unless* you're already tired. After **16 hours** awake you get tired — a warning, a short fade-to-black and a yawn — and can then sleep any time to recover. Sleeping less than **6 hours** leaves you sleep-deprived and still tired until you get a proper rest.
-
 -   **Chainsaw stump removal** — no more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it's removed — no expensive stump grinder needed.
 
 More realism features will be added in future updates, each as a self-contained module.

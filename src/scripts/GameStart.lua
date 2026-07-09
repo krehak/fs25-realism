@@ -116,7 +116,7 @@ local function showIntro()
     GameStart.introShown = true
 
     local body = l10n("realism_intro_body",
-        "This mod makes farming authentic and hard. No teleporting, real sleep, " ..
+        "This mod makes farming authentic and hard. No teleporting, " ..
         "inflation, no auto-selling, locked realism settings. Your starting money, " ..
         "vehicle and field are whatever the map you picked gives you — build your " ..
         "farm from there, the hard way.")
