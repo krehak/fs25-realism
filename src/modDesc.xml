@@ -46,7 +46,7 @@ Features:
   Hired workers no longer get a free pass over your crops. Like you, an AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks as it drives — so tyre choice matters for helpers too.
 
 - Chainsaw stump removal
-  No more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it is removed — clean up your woodland with the tool you already have, no expensive stump grinder needed.
+  No more permanent stumps littering your forest. After felling a tree, just hold the running chainsaw into the leftover stump — anywhere on it — and it is ground away. You do not need to line up a perfect cut or wait for the ring to turn green; if the saw is revving against the stump, it goes. Clean up your woodland with the tool you already have, no expensive stump grinder needed.
 
 - Log weight in multiplayer
   The game only calculates a log's mass on the server, so forestry info mods hide the weight from every player who is not the host. Realism syncs each wood species' density from the server to all clients and shows a Mass line in the log info box for joined players too, so nobody has to guess how heavy a log is.

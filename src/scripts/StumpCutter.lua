@@ -11,11 +11,18 @@
 --   * stump         = static + split      -> removable
 --   * felled log    = dynamic + split     -> ignored (a real log)
 --
+-- Cutting works anywhere inside the stump — the ring selector does NOT have
+-- to be green. The base game only reaches its CUTTING state on a valid full
+-- cut (the green ring), which is fiddly to line up on a short stump, so we
+-- instead trigger on the chainsaw revving hard (engine RPM) while aimed at a
+-- stump. Just hold the running chainsaw into the stump and it grinds away.
+--
 -- Hooks:
 --   HandToolChainsaw.updateRingSelector — capture the shape the chainsaw
---     is currently aimed at (same hook LumberJack uses).
---   HandToolChainsaw.onUpdate — while actively cutting that shape and it's
---     a stump, run a short timer, then delete it.
+--     is currently aimed at (same hook LumberJack uses). Marked "fresh" only
+--     on the frame it fires, so we never grind a stump we've walked away from.
+--   HandToolChainsaw.onUpdate — while the chainsaw is revving (or in the
+--     base-game cut state) and aimed at a stump, run a short timer, delete it.
 --
 -- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and
 -- the shape, server-side. Everything is pcall-guarded.
@@ -33,6 +40,7 @@ StumpCutter.NAME = "StumpCutter"
 StumpCutter.GRIND_TIME_MS = 1000
 
 StumpCutter.targetShape = nil
+StumpCutter.targetFresh = false
 StumpCutter.grindTime = 0
 
 local function log(message)
@@ -161,11 +169,23 @@ end
 local function captureRingTarget(self, superFunc, shape, canCut, ...)
     if shape ~= nil and shape.node ~= nil then
         StumpCutter.targetShape = shape.node
+        StumpCutter.targetFresh = true
     else
         StumpCutter.targetShape = nil
+        StumpCutter.targetFresh = false
     end
 
     return superFunc(self, shape, canCut, ...)
+end
+
+local function isChainsawRevving(self)
+    local motor = self.spec_motorized
+
+    if motor == nil or motor.maxRPM == nil or motor.maxRPM == 0 then
+        return false
+    end
+
+    return (motor.currentRPM or 0) > 0.8 * motor.maxRPM
 end
 
 local function onChainsawUpdate(self, dt)
@@ -175,9 +195,13 @@ local function onChainsawUpdate(self, dt)
         return
     end
 
-    local cutting = ChainsawCutState ~= nil and spec.currentCutState == ChainsawCutState.CUTTING
+    local fresh = StumpCutter.targetFresh
+    StumpCutter.targetFresh = false
 
-    if cutting and isStump(StumpCutter.targetShape) then
+    local baseCutting = ChainsawCutState ~= nil and spec.currentCutState == ChainsawCutState.CUTTING
+    local cutting = baseCutting or isChainsawRevving(self)
+
+    if fresh and cutting and isStump(StumpCutter.targetShape) then
         StumpCutter.grindTime = (StumpCutter.grindTime or 0) + (dt or 0)
 
         if StumpCutter.grindTime >= StumpCutter.GRIND_TIME_MS then

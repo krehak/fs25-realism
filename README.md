@@ -38,7 +38,7 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 -   **AI crop damage** — hired workers no longer get a free pass over your crops. An AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks just like you do — so tyre choice matters for helpers too.
 
--   **Chainsaw stump removal** — no more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it's removed — no expensive stump grinder needed.
+-   **Chainsaw stump removal** — no more permanent stumps littering your forest. After felling a tree, just hold the running chainsaw into the leftover stump — anywhere on it, no need to line up a green cut ring — and it's ground away. No expensive stump grinder needed.
 
 -   **Log weight in multiplayer** — the game only knows a log's mass on the server, so forestry info mods hide the weight from everyone who isn't the host. Realism syncs each wood species' density from the server to all clients and shows a **Mass** line in the log info box for joined players too — no more guessing how heavy a log is.
 
