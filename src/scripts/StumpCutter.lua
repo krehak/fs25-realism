@@ -20,6 +20,13 @@
 -- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and
 -- the shape, server-side. Everything is pcall-guarded.
 --
+-- Multiplayer: detection (aiming + cut state) only exists on the machine of
+-- the player holding the chainsaw, but the actual deletion must run on the
+-- server. On a client we therefore send StumpCutterEvent to the server with
+-- the split-shape node id. Split-shape node ids are network-consistent in
+-- FS25 (the base game's ChainsawCutEvent relies on the same fact), so the
+-- server resolves the exact same stump and deletes it for everyone.
+--
 
 StumpCutter = {}
 StumpCutter.NAME = "StumpCutter"
@@ -66,8 +73,12 @@ local function isStump(node)
     return true
 end
 
-local function removeStump(node)
-    if g_currentMission == nil or type(g_currentMission.getIsServer) ~= "function" or not g_currentMission:getIsServer() then
+local function isServer()
+    return g_currentMission ~= nil and type(g_currentMission.getIsServer) == "function" and g_currentMission:getIsServer()
+end
+
+local function removeStumpOnServer(node)
+    if not isServer() then
         return false
     end
 
@@ -98,6 +109,55 @@ local function removeStump(node)
     return ok
 end
 
+StumpCutterEvent = {}
+local StumpCutterEvent_mt = Class(StumpCutterEvent, Event)
+
+InitEventClass(StumpCutterEvent, "StumpCutterEvent")
+
+function StumpCutterEvent.emptyNew()
+    return Event.new(StumpCutterEvent_mt)
+end
+
+function StumpCutterEvent.new(node)
+    local self = StumpCutterEvent.emptyNew()
+    self.node = node
+
+    return self
+end
+
+function StumpCutterEvent:writeStream(streamId, connection)
+    streamWriteInt32(streamId, self.node or 0)
+end
+
+function StumpCutterEvent:readStream(streamId, connection)
+    self.node = streamReadInt32(streamId)
+
+    self:run(connection)
+end
+
+function StumpCutterEvent:run(connection)
+    if not connection:getIsServer() then
+        if removeStumpOnServer(self.node) then
+            log("stump removed (client request)")
+        end
+    end
+end
+
+local function requestStumpRemoval(node)
+    if isServer() then
+        if removeStumpOnServer(node) then
+            log("stump removed")
+        end
+
+        return
+    end
+
+    if g_client ~= nil and g_client.getServerConnection ~= nil then
+        g_client:getServerConnection():sendEvent(StumpCutterEvent.new(node))
+        log("stump removal requested from server")
+    end
+end
+
 local function captureRingTarget(self, superFunc, shape, canCut, ...)
     if shape ~= nil and shape.node ~= nil then
         StumpCutter.targetShape = shape.node
@@ -126,9 +186,7 @@ local function onChainsawUpdate(self, dt)
             StumpCutter.grindTime = 0
             StumpCutter.targetShape = nil
 
-            if removeStump(node) then
-                log("stump removed")
-            end
+            requestStumpRemoval(node)
         end
     else
         StumpCutter.grindTime = 0

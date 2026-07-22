@@ -14,7 +14,7 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 ## Features
 
--   **Realism intro (new games)** — on the first load of a brand-new save, a short intro dialog explains the rules you signed up for. Your starting money, vehicle and field are left to whatever the map / career preset you picked provides — the mod doesn't change them. You build your farm from there, the hard way. Existing saves are never touched, and the intro never re-runs.
+-   **Realism intro (new games)** — on the first load of a brand-new save, a short intro dialog explains the rules you signed up for. You build your farm from there, the hard way.
 
 -   **No teleporting** — `Tab` / `Shift+Tab` no longer switch between vehicles, you can't jump into a vehicle picked from the map unless you're standing next to it, and the map's "Visit" / "Go To" for fields and buildings won't teleport you. Walk up and press `E` as normal. Plan your routes and park sensibly.
 
@@ -39,6 +39,8 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 -   **AI crop damage** — hired workers no longer get a free pass over your crops. An AI vehicle running the wrong (non row-crop) tyres flattens crops and leaves tracks just like you do — so tyre choice matters for helpers too.
 
 -   **Chainsaw stump removal** — no more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it's removed — no expensive stump grinder needed.
+
+-   **Log weight in multiplayer** — the game only knows a log's mass on the server, so forestry info mods hide the weight from everyone who isn't the host. Realism syncs each wood species' density from the server to all clients and shows a **Mass** line in the log info box for joined players too — no more guessing how heavy a log is.
 
 More realism features will be added in future updates, each as a self-contained module.
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="104">
     <author>Patrik Krehák</author>
-    <version>1.0.0.0</version>
+    <version>1.0.1.0</version>
     <title>
         <en>Realism</en>
     </title>
@@ -14,7 +14,7 @@ This mod focuses on authenticity. No new vehicles, no new buildings, no flashy t
 Features:
 
 - Realism intro (new games)
-  When you begin a brand-new save, a short intro explains the rules you signed up for. Your starting money, starting vehicle and starting field are left to whatever the map / career preset you picked provides — the mod no longer changes them. Existing saves are never touched.
+  When you begin a brand-new save, a short intro explains the rules you signed up for. You build your farm from there, the hard way.
 
 - Disabled teleporting
   You can no longer press Tab or Shift+Tab to switch between vehicles, you can't jump into a vehicle picked from the in-game map unless you are standing right next to it, and the map's "Visit" / "Go To" option for fields and buildings no longer teleports you. To get anywhere you have to physically walk or drive there. Plan your routes, park sensibly, and respect the distance — like a real farmer would.
@@ -48,6 +48,9 @@ Features:
 - Chainsaw stump removal
   No more permanent stumps littering your forest. After felling a tree, cut into the leftover stump with the chainsaw and it is removed — clean up your woodland with the tool you already have, no expensive stump grinder needed.
 
+- Log weight in multiplayer
+  The game only calculates a log's mass on the server, so forestry info mods hide the weight from every player who is not the host. Realism syncs each wood species' density from the server to all clients and shows a Mass line in the log info box for joined players too, so nobody has to guess how heavy a log is.
+
 More realism features will be added in future updates, each as a self-contained module that can be enabled or disabled independently.
 
 Compatibility:
@@ -71,6 +74,7 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
         <sourceFile filename="scripts/BulkTrade.lua" />
         <sourceFile filename="scripts/Balancer.lua" />
         <sourceFile filename="scripts/StumpCutter.lua" />
+        <sourceFile filename="scripts/WoodMass.lua" />
         <sourceFile filename="scripts/AICropDamage.lua" />
         <sourceFile filename="scripts/GameStart.lua" />
     </extraSourceFiles>
@@ -87,6 +91,9 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
         </text>
         <text name="realism_intro_body">
             <en>This mod makes farming authentic and hard. No teleporting, inflation, no auto-selling, locked realism settings. Your starting money, vehicle and field are whatever the map you picked gives you — build your farm from there, the hard way.</en>
+        </text>
+        <text name="realism_mass">
+            <en>Mass</en>
         </text>
     </l10n>
 </modDesc>
