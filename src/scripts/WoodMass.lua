@@ -88,6 +88,8 @@ end
 function WoodMassDensityEvent:run(connection)
     if self.typeIndex ~= nil and self.density ~= nil and self.density > 0 then
         WoodMass.density[self.typeIndex] = self.density
+
+        log(string.format("density received for split type %d: %.2f kg/m3", self.typeIndex, self.density))
     end
 end
 
@@ -231,7 +233,7 @@ local function appendMassLine(playerHudUpdater, splitShape)
 
     local box = playerHudUpdater.objectBox
 
-    if box == nil or box.currentLineIndex == nil then
+    if box == nil or type(box.addLine) ~= "function" then
         return
     end
 

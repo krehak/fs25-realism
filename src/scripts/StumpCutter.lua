@@ -11,18 +11,24 @@
 --   * stump         = static + split      -> removable
 --   * felled log    = dynamic + split     -> ignored (a real log)
 --
--- Cutting works anywhere inside the stump — the ring selector does NOT have
--- to be green. The base game only reaches its CUTTING state on a valid full
--- cut (the green ring), which is fiddly to line up on a short stump, so we
--- instead trigger on the chainsaw revving hard (engine RPM) while aimed at a
--- stump. Just hold the running chainsaw into the stump and it grinds away.
+-- Cutting works anywhere on the stump — the ring selector does NOT have to be
+-- green. The base game only reaches its CUTTING state on a valid full cut (the
+-- green ring), which is impossible to line up on a short stump. But while the
+-- player holds the saw trigger into an invalid spot the base game enters its
+-- DELIMBING state instead, so we treat DELIMBING and CUTTING alike: either one,
+-- aimed at a stump, means "actively sawing this stump". (spec_chainsaw has no
+-- turned-on / RPM flag we can read; a chainsaw is a HandTool, not a vehicle.)
+--
+-- The aimed shape and the cut state both flicker frame-to-frame while sawing,
+-- so we latch the stump and keep a short grace window (GRACE_MS): brief
+-- dropouts don't reset the grind timer, but releasing the trigger or aiming
+-- away for longer than the grace clears it.
 --
 -- Hooks:
 --   HandToolChainsaw.updateRingSelector — capture the shape the chainsaw
---     is currently aimed at (same hook LumberJack uses). Marked "fresh" only
---     on the frame it fires, so we never grind a stump we've walked away from.
---   HandToolChainsaw.onUpdate — while the chainsaw is revving (or in the
---     base-game cut state) and aimed at a stump, run a short timer, delete it.
+--     is currently aimed at (same hook LumberJack uses).
+--   HandToolChainsaw.onUpdate — while sawing (DELIMBING or CUTTING) a latched
+--     stump, run a short timer, then delete it.
 --
 -- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and
 -- the shape, server-side. Everything is pcall-guarded.
@@ -37,11 +43,13 @@
 
 StumpCutter = {}
 StumpCutter.NAME = "StumpCutter"
-StumpCutter.GRIND_TIME_MS = 1000
+StumpCutter.GRIND_TIME_MS = 700
+StumpCutter.GRACE_MS = 500
 
 StumpCutter.targetShape = nil
-StumpCutter.targetFresh = false
+StumpCutter.grindStump = nil
 StumpCutter.grindTime = 0
+StumpCutter.idleTime = 0
 
 local function log(message)
     if Realism ~= nil and Realism.log ~= nil then
@@ -169,23 +177,21 @@ end
 local function captureRingTarget(self, superFunc, shape, canCut, ...)
     if shape ~= nil and shape.node ~= nil then
         StumpCutter.targetShape = shape.node
-        StumpCutter.targetFresh = true
     else
         StumpCutter.targetShape = nil
-        StumpCutter.targetFresh = false
     end
 
     return superFunc(self, shape, canCut, ...)
 end
 
-local function isChainsawRevving(self)
-    local motor = self.spec_motorized
-
-    if motor == nil or motor.maxRPM == nil or motor.maxRPM == 0 then
+local function isSawing(spec)
+    if ChainsawCutState == nil then
         return false
     end
 
-    return (motor.currentRPM or 0) > 0.8 * motor.maxRPM
+    local state = spec.currentCutState
+
+    return state == ChainsawCutState.CUTTING or state == ChainsawCutState.DELIMBING
 end
 
 local function onChainsawUpdate(self, dt)
@@ -195,25 +201,36 @@ local function onChainsawUpdate(self, dt)
         return
     end
 
-    local fresh = StumpCutter.targetFresh
-    StumpCutter.targetFresh = false
+    dt = dt or 0
 
-    local baseCutting = ChainsawCutState ~= nil and spec.currentCutState == ChainsawCutState.CUTTING
-    local cutting = baseCutting or isChainsawRevving(self)
+    local target = StumpCutter.targetShape
+    local grinding = isSawing(spec) and isStump(target)
 
-    if fresh and cutting and isStump(StumpCutter.targetShape) then
-        StumpCutter.grindTime = (StumpCutter.grindTime or 0) + (dt or 0)
+    if grinding then
+        if StumpCutter.grindStump ~= target then
+            StumpCutter.grindStump = target
+            StumpCutter.grindTime = 0
+        end
+
+        StumpCutter.grindTime = StumpCutter.grindTime + dt
+        StumpCutter.idleTime = 0
 
         if StumpCutter.grindTime >= StumpCutter.GRIND_TIME_MS then
-            local node = StumpCutter.targetShape
+            local node = StumpCutter.grindStump
 
+            StumpCutter.grindStump = nil
             StumpCutter.grindTime = 0
-            StumpCutter.targetShape = nil
 
             requestStumpRemoval(node)
         end
-    else
-        StumpCutter.grindTime = 0
+    elseif StumpCutter.grindStump ~= nil then
+        StumpCutter.idleTime = StumpCutter.idleTime + dt
+
+        if StumpCutter.idleTime >= StumpCutter.GRACE_MS then
+            StumpCutter.grindStump = nil
+            StumpCutter.grindTime = 0
+            StumpCutter.idleTime = 0
+        end
     end
 end
 
