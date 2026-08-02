@@ -30,15 +30,19 @@
 --   HandToolChainsaw.onUpdate — while sawing (DELIMBING or CUTTING) a latched
 --     stump, run a short timer, then delete it.
 --
--- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and
--- the shape, server-side. Everything is pcall-guarded.
+-- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and the
+-- shape. Everything is pcall-guarded and re-checks isStump before deleting.
 --
--- Multiplayer: detection (aiming + cut state) only exists on the machine of
--- the player holding the chainsaw, but the actual deletion must run on the
--- server. On a client we therefore send StumpCutterEvent to the server with
--- the split-shape node id. Split-shape node ids are network-consistent in
--- FS25 (the base game's ChainsawCutEvent relies on the same fact), so the
--- server resolves the exact same stump and deletes it for everyone.
+-- Multiplayer: detection (aiming + cut state) only exists on the machine of the
+-- player holding the chainsaw, but a raw delete(node) is local to one scene and
+-- does NOT sync. So removal is server-authoritative AND broadcast:
+--   * client holding the saw  -> sends StumpCutterEvent(node) to the server
+--   * server                  -> removes locally, then broadcasts the same
+--                                event to every client, which each delete their
+--                                own copy (host-held saw skips straight to this)
+-- Split-shape node ids are network-consistent in FS25 (the base game's own tree
+-- cutting relies on the same fact), so the id resolves to the same stump on
+-- every machine; the receiving side still re-checks isStump as a safety net.
 --
 
 StumpCutter = {}
@@ -93,17 +97,13 @@ local function isServer()
     return g_currentMission ~= nil and type(g_currentMission.getIsServer) == "function" and g_currentMission:getIsServer()
 end
 
-local function removeStumpOnServer(node)
-    if not isServer() then
+local function applyRemovalLocally(node)
+    if not isStump(node) then
         return false
     end
 
-    local ok = pcall(function()
-        if entityExists ~= nil and not entityExists(node) then
-            return
-        end
-
-        if type(g_currentMission.removeKnownSplitShape) == "function" then
+    return pcall(function()
+        if isServer() and type(g_currentMission.removeKnownSplitShape) == "function" then
             g_currentMission:removeKnownSplitShape(node)
         end
 
@@ -117,12 +117,22 @@ local function removeStumpOnServer(node)
             delete(node)
         end
 
-        if g_densityMapHeightManager ~= nil and type(g_densityMapHeightManager.consoleCommandUpdateTipCollisions) == "function" then
+        if isServer() and g_densityMapHeightManager ~= nil and type(g_densityMapHeightManager.consoleCommandUpdateTipCollisions) == "function" then
             g_densityMapHeightManager:consoleCommandUpdateTipCollisions()
         end
     end)
+end
 
-    return ok
+local function removeStumpEverywhere(node)
+    if not applyRemovalLocally(node) then
+        return false
+    end
+
+    if g_server ~= nil and type(g_server.broadcastEvent) == "function" then
+        g_server:broadcastEvent(StumpCutterEvent.new(node))
+    end
+
+    return true
 end
 
 StumpCutterEvent = {}
@@ -152,16 +162,21 @@ function StumpCutterEvent:readStream(streamId, connection)
 end
 
 function StumpCutterEvent:run(connection)
-    if not connection:getIsServer() then
-        if removeStumpOnServer(self.node) then
+    if isServer() then
+        if removeStumpEverywhere(self.node) then
             log("stump removed (client request)")
         end
+    else
+        log(string.format("applying removal from server: node=%s isStump=%s",
+            tostring(self.node), tostring(isStump(self.node))))
+
+        applyRemovalLocally(self.node)
     end
 end
 
 local function requestStumpRemoval(node)
     if isServer() then
-        if removeStumpOnServer(node) then
+        if removeStumpEverywhere(node) then
             log("stump removed")
         end
 
