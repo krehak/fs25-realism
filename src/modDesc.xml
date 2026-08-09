@@ -75,6 +75,7 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
         <sourceFile filename="scripts/Balancer.lua" />
         <sourceFile filename="scripts/StumpCutter.lua" />
         <sourceFile filename="scripts/WoodMass.lua" />
+        <!--<sourceFile filename="scripts/CarryGrip.lua" />-->
         <sourceFile filename="scripts/AICropDamage.lua" />
         <sourceFile filename="scripts/GameStart.lua" />
     </extraSourceFiles>
