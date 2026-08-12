@@ -5,15 +5,44 @@
 -- vehicle they are not physically next to.
 --
 --   1. The SWITCH_VEHICLE / SWITCH_VEHICLE_BACK input actions (Tab and
---      Shift+Tab) are suppressed at registration time, so cycling
---      between vehicles does nothing and the prompt is hidden.
+--      Shift+Tab) are deactivated, so cycling between vehicles does
+--      nothing and the prompt is hidden.
 --   2. Player:requestToEnterVehicle gets a distance check, so entering a
 --      vehicle picked from the in-game map (which would teleport you to
 --      a remote vehicle) is rejected when it is too far away.
+--   3. Player:teleportTo rejects any jump of the local player further than
+--      MAX_TELEPORT_DISTANCE, which is what the map's "Visit" / "Go To"
+--      does on a field, building or NPC.
 --
 -- Walking up to a vehicle and pressing E still works — the game already
 -- gates that on the vehicle being in range, and the distance check here
 -- passes when you are standing next to it.
+--
+-- The teleport guard keys off distance rather than "was a menu open just
+-- now", which is what it used to do. That heuristic leaked both ways: the
+-- map closes its screen before teleporting, so a Visit could land outside
+-- the window and go through, while ShopTrigger:openShop — which opens the
+-- shop screen and only then teleports you to the shop's spawn — sat inside
+-- it and got blocked. Distance also lets the short, legitimate teleports
+-- through untouched: stepping out of a vehicle, or entering the shop.
+-- Only the local controlled player is guarded, so a joining or moving
+-- player elsewhere in a multiplayer session is never affected.
+--
+-- The switch block wraps InputBinding:registerActionEvent, which every
+-- vehicle and implement control in the game goes through, so that wrapper
+-- has to be invisible to everything except the two blocked actions:
+--
+--   * Any other action is a straight tail call to the original. No return
+--     values are captured and re-returned, because doing that truncates
+--     them to the two the wrapper happens to name — callers like
+--     Vehicle:addActionEvent key their spec.actionEvents table off those
+--     returns, and an implement whose entry never lands in that table has
+--     a control that silently does nothing (a bale wrapper that won't
+--     unload, for instance).
+--   * A blocked action is only recorded here and deactivated on the next
+--     frame from update(). Calling setActionEventActive() from inside
+--     registerActionEvent mutates the input system mid-registration,
+--     while the vehicle's whole action-event pass is still open.
 --
 -- Both hooks are installed defensively (only when the target really is a
 -- function) so a future game patch can't turn this into a hard error.
@@ -23,8 +52,8 @@ DisableTeleport = {}
 DisableTeleport.NAME = "DisableTeleport"
 DisableTeleport.ENTER_DISTANCE = 8.0
 DisableTeleport.gameStarted = false
-DisableTeleport.lastMenuTime = 0
-DisableTeleport.MENU_RECENCY_MS = 1200
+DisableTeleport.MAX_TELEPORT_DISTANCE = 50.0
+DisableTeleport.pendingBlocked = {}
 
 local blockedActions = {}
 
@@ -87,15 +116,44 @@ local function isPlayerNearVehicle(player, vehicle)
     return (dx * dx + dy * dy + dz * dz) <= (DisableTeleport.ENTER_DISTANCE * DisableTeleport.ENTER_DISTANCE)
 end
 
-local function suppressSwitchRegister(self, superFunc, inputActionId, ...)
-    local success, actionEventId = superFunc(self, inputActionId, ...)
+-- Remember the event id (2nd return) without disturbing the return list.
+local function recordBlocked(...)
+    local actionEventId = select(2, ...)
 
-    if actionEventId ~= nil and inputActionId ~= nil and blockedActions[inputActionId] then
-        self:setActionEventActive(actionEventId, false)
-        self:setActionEventTextVisibility(actionEventId, false)
+    if actionEventId ~= nil then
+        DisableTeleport.pendingBlocked[#DisableTeleport.pendingBlocked + 1] = actionEventId
     end
 
-    return success, actionEventId
+    return ...
+end
+
+local function suppressSwitchRegister(self, superFunc, inputActionId, ...)
+    if inputActionId == nil or not blockedActions[inputActionId] then
+        return superFunc(self, inputActionId, ...)
+    end
+
+    return recordBlocked(superFunc(self, inputActionId, ...))
+end
+
+local function applyPendingBlocks()
+    local pending = DisableTeleport.pendingBlocked
+
+    if #pending == 0 then
+        return
+    end
+
+    DisableTeleport.pendingBlocked = {}
+
+    if g_inputBinding == nil then
+        return
+    end
+
+    for _, actionEventId in ipairs(pending) do
+        pcall(function()
+            g_inputBinding:setActionEventActive(actionEventId, false)
+            g_inputBinding:setActionEventTextVisibility(actionEventId, false)
+        end)
+    end
 end
 
 local function distanceCheckedEnter(self, superFunc, vehicle, ...)
@@ -108,44 +166,54 @@ local function distanceCheckedEnter(self, superFunc, vehicle, ...)
     return superFunc(self, vehicle, ...)
 end
 
-local function isMenuOpen()
-    if g_gui == nil then
+local function isLocalControlledPlayer(player)
+    if player == nil then
         return false
     end
 
-    if type(g_gui.getIsGuiVisible) == "function" and g_gui:getIsGuiVisible() then
-        return true
+    if g_localPlayer ~= nil then
+        return player == g_localPlayer
     end
 
-    return false
+    return player.isOwner == true
 end
 
-local function wasMenuRecentlyOpen()
-    if isMenuOpen() then
-        return true
+local function teleportDistance(player, x, y, z)
+    if x == nil or y == nil or z == nil then
+        return nil
     end
 
-    local now = g_time or 0
+    local px, py, pz = getNodePosition(player.rootNode)
 
-    return (now - DisableTeleport.lastMenuTime) < DisableTeleport.MENU_RECENCY_MS
+    if px == nil then
+        return nil
+    end
+
+    local dx = px - x
+    local dy = py - y
+    local dz = pz - z
+
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
-local function guardedTeleportTo(self, superFunc, ...)
-    if DisableTeleport.gameStarted and wasMenuRecentlyOpen() then
-        logBlocked("player teleport from map (Visit / Go To)")
+local function guardedTeleportTo(self, superFunc, x, y, z, ...)
+    if DisableTeleport.gameStarted and isLocalControlledPlayer(self) then
+        local distance = teleportDistance(self, x, y, z)
 
-        return
+        if distance ~= nil and distance > DisableTeleport.MAX_TELEPORT_DISTANCE then
+            logBlocked(string.format("player jump of %.0f m (map Visit / Go To)", distance))
+
+            return
+        end
     end
 
-    return superFunc(self, ...)
+    return superFunc(self, x, y, z, ...)
 end
 
 function DisableTeleport:update(dt)
     DisableTeleport.gameStarted = true
 
-    if isMenuOpen() then
-        DisableTeleport.lastMenuTime = g_time or 0
-    end
+    applyPendingBlocks()
 end
 
 function DisableTeleport.install()

@@ -31,7 +31,9 @@
 --     stump, run a short timer, then delete it.
 --
 -- Removal mirrors LumberJack: removeKnownSplitShape + delete the LOD and the
--- shape. Everything is pcall-guarded and re-checks isStump before deleting.
+-- shape. The LOD is resolved as the split shape's real sibling rather than by
+-- LumberJack's node + 2 guess, which can land on an unrelated entity.
+-- Everything is pcall-guarded and re-checks isStump before deleting.
 --
 -- Multiplayer: detection (aiming + cut state) only exists on the machine of the
 -- player holding the chainsaw, but a raw delete(node) is local to one scene and
@@ -49,6 +51,7 @@ StumpCutter = {}
 StumpCutter.NAME = "StumpCutter"
 StumpCutter.GRIND_TIME_MS = 700
 StumpCutter.GRACE_MS = 500
+StumpCutter.MAX_TREE_GROUP_CHILDREN = 8
 
 StumpCutter.targetShape = nil
 StumpCutter.grindStump = nil
@@ -97,6 +100,46 @@ local function isServer()
     return g_currentMission ~= nil and type(g_currentMission.getIsServer) == "function" and g_currentMission:getIsServer()
 end
 
+-- A tree i3d is a TransformGroup holding the split shape ("LOD0", with an
+-- optional "LOD0Attachments" child) and its sibling low-detail mesh "LOD1".
+-- Deleting only the split shape leaves LOD1 floating, so it has to go too.
+--
+-- LumberJack guesses the sibling as node + 2, which only holds when
+-- LOD0Attachments exists and nothing else was loaded in between — otherwise
+-- it lands on an unrelated entity, and "LOD1" is a common enough name that
+-- the name check alone can still match another object's mesh. Resolving it
+-- as a real sibling of the split shape removes the guess. The child-count
+-- guard keeps us from ever walking a shared parent (a map's "trees" group)
+-- and deleting a neighbouring tree's mesh; a tree group holds at most a
+-- handful of nodes.
+local function findSiblingLod(node)
+    if getParent == nil or getNumOfChildren == nil or getChildAt == nil or getName == nil then
+        return nil
+    end
+
+    local parent = getParent(node)
+
+    if parent == nil or parent == 0 then
+        return nil
+    end
+
+    local numChildren = getNumOfChildren(parent)
+
+    if numChildren > StumpCutter.MAX_TREE_GROUP_CHILDREN then
+        return nil
+    end
+
+    for i = 0, numChildren - 1 do
+        local child = getChildAt(parent, i)
+
+        if child ~= node and getName(child) == "LOD1" then
+            return child
+        end
+    end
+
+    return nil
+end
+
 local function applyRemovalLocally(node)
     if not isStump(node) then
         return false
@@ -107,9 +150,9 @@ local function applyRemovalLocally(node)
             g_currentMission:removeKnownSplitShape(node)
         end
 
-        local lodId = node + 2
+        local lodId = findSiblingLod(node)
 
-        if entityExists ~= nil and entityExists(lodId) and getName ~= nil and getName(lodId) == "LOD1" then
+        if lodId ~= nil and (entityExists == nil or entityExists(lodId)) then
             delete(lodId)
         end
 
