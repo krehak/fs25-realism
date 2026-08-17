@@ -28,6 +28,24 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 -   **Store-only production** — production buildings can no longer auto-sell or auto-distribute. Every output is forced to "store" mode and piles up in the building's storage; to turn it into money you drive a trailer over, load it, and haul it to a sell point or another production yourself.
 
+    **Closed systems are exempt.** Products no vehicle can ever carry — the base game biogas plant's methane and electricity, or the internal fill types of modular mods like *PlanET Modular BGA*, where each module feeds the next — stay freely configurable, because locking them would deadlock the chain instead of creating hauling work. An output is exempt when it's in no vehicle fill type category, isn't a pallet, isn't traded on the price table, or the building has no storage for it. Overrides live in `modSettings/FS25_Realism/productionStoreOnly.xml` (created on first run):
+
+    ```xml
+    <productionStoreOnly autoDetectClosedSystems="true" debug="false">
+        <closedSystemMods>
+            <mod name="FS25_PlanET_BGA_Modular"/>
+        </closedSystemMods>
+        <closedSystemFillTypes>
+            <fillType name="RAWMETHANE"/>
+        </closedSystemFillTypes>
+        <storeOnlyFillTypes>
+            <fillType name="SOMETHING_AUTODETECT_GOT_WRONG"/>
+        </storeOnlyFillTypes>
+    </productionStoreOnly>
+    ```
+
+    Set `debug="true"` to have every production point's outputs and their verdict written to `log.txt` on load.
+
 -   **Bulk trade bonuses** — moving goods in volume pays off, like a real wholesale deal:
     -   **Selling:** +1% at 25,000 L, ramping to **+10%** at 100,000 L or more.
     -   **Buying** (fertilizer, lime, seeds, herbicide, fuel): −1% at 1,000 L, ramping to **−8%** at 10,000 L or more.

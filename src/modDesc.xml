@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="104">
     <author>Patrik Krehák</author>
-    <version>1.0.1.5</version>
+    <version>1.0.2.0</version>
     <title>
         <en>Realism</en>
     </title>
@@ -33,6 +33,8 @@ Features:
 
 - Production store-only (no auto-sell or auto-distribute)
   Production buildings can no longer automatically sell or distribute their output. Every product is forced to "store" mode and piles up in the building's storage. To turn it into money you must drive a trailer over, load the goods, and haul them to a sell point or another production yourself. Manage your own supply chain.
+
+  Products that no vehicle can ever carry are the exception and stay freely configurable — the base game biogas plant (methane, electricity) and closed-system mods such as PlanET Modular BGA, where each module feeds the next through custom fill types no trailer accepts. Locking those would deadlock the chain instead of creating hauling work. Detection is automatic; you can also list mods or fill types by hand in modSettings/FS25_Realism/productionStoreOnly.xml.
 
 - Bulk trade bonuses
   Moving goods in volume pays off, like a real wholesale deal.
