@@ -49,6 +49,8 @@
 
 StumpCutter = {}
 StumpCutter.NAME = "StumpCutter"
+-- How long the running saw must be held into the stump. Feel, not
+-- difficulty: too short and stumps vanish as you walk past.
 StumpCutter.GRIND_TIME_MS = 700
 StumpCutter.GRACE_MS = 500
 StumpCutter.MAX_TREE_GROUP_CHILDREN = 8
@@ -64,6 +66,18 @@ local function log(message)
     else
         print("[Realism] StumpCutter: " .. tostring(message))
     end
+end
+
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("stumpCutter")
+end
+
+function StumpCutter.getGrindTime()
+    return StumpCutter.GRIND_TIME_MS
 end
 
 local function isStump(node)
@@ -262,7 +276,7 @@ local function onChainsawUpdate(self, dt)
     dt = dt or 0
 
     local target = StumpCutter.targetShape
-    local grinding = isSawing(spec) and isStump(target)
+    local grinding = isEnabled() and isSawing(spec) and isStump(target)
 
     if grinding then
         if StumpCutter.grindStump ~= target then
@@ -273,7 +287,7 @@ local function onChainsawUpdate(self, dt)
         StumpCutter.grindTime = StumpCutter.grindTime + dt
         StumpCutter.idleTime = 0
 
-        if StumpCutter.grindTime >= StumpCutter.GRIND_TIME_MS then
+        if StumpCutter.grindTime >= StumpCutter.getGrindTime() then
             local node = StumpCutter.grindStump
 
             StumpCutter.grindStump = nil
@@ -311,7 +325,7 @@ function StumpCutter.install()
         Realism.registerFeature(StumpCutter.NAME, StumpCutter)
     end
 
-    log("chainsaw stump removal enabled")
+    log("chainsaw stump removal installed")
 end
 
 StumpCutter.install()

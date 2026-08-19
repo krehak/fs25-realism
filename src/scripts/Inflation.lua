@@ -19,8 +19,8 @@
 -- the same between playthroughs; true per-save randomness would need
 -- savegame persistence and can be added later.
 --
--- Applied through the game's own price functions (so it stacks correctly
--- with the BulkTrade bonuses):
+-- Applied through the game's own price functions, so it stacks correctly
+-- with the BulkTrade buying discount and the SupplyDemand market price:
 --   EconomyManager:getPricePerLiter        (fill-station buying)
 --   EconomyManager:getBuyPrice             (shop / vehicle / pallet buying)
 --   SellingStation:getEffectiveFillTypePrice (selling)

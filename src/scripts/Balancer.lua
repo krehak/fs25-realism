@@ -24,25 +24,37 @@
 -- few seconds. Only the server/host enforces; clients receive the synced
 -- values.
 --
+-- Every lock is released individually under Settings ("balancer") — an
+-- admin who wants weeds off but everything else locked turns off
+-- forceWeeds alone. Releasing a lock only stops Realism from re-applying
+-- it; it does not flip the game setting back, so players are simply free
+-- to change it in the menu again.
+--
 
 Balancer = {}
 Balancer.NAME = "Balancer"
+
+-- Field stones start switched off on a brand-new save, then the player owns
+-- the choice — switch them on and they stay on. Not a server setting: it
+-- only ever applies on the very first load of a new save, so by the time
+-- anyone could edit it the moment has passed.
+Balancer.DISABLE_STONES_ON_NEW_GAME = true
 Balancer.INTERVAL_MS = 3000
 
 Balancer.FORCED_TRUE = {
-    "trafficEnabled",
-    "isSnowEnabled",
-    "fruitDestruction",
-    "plowingRequiredEnabled",
-    "weedsEnabled",
-    "limeRequired",
+    { field = "trafficEnabled", setting = "forceTraffic" },
+    { field = "isSnowEnabled", setting = "forceSnow" },
+    { field = "fruitDestruction", setting = "forceCropDestruction" },
+    { field = "plowingRequiredEnabled", setting = "forcePeriodicalPlowing" },
+    { field = "weedsEnabled", setting = "forceWeeds" },
+    { field = "limeRequired", setting = "forceLimeRequired" },
 }
 
 -- AI helpers must never auto-buy consumables; the player has to refill.
 Balancer.FORCED_FALSE = {
-    "helperBuyFuel",
-    "helperBuySeeds",
-    "helperBuyFertilizer",
+    { field = "helperBuyFuel", setting = "blockHelperAutoBuy" },
+    { field = "helperBuySeeds", setting = "blockHelperAutoBuy" },
+    { field = "helperBuyFertilizer", setting = "blockHelperAutoBuy" },
 }
 
 -- Slurry/manure source: 1 = none (player must supply), 2 = auto-buy,
@@ -58,6 +70,28 @@ Balancer.NEW_GAME_PLAYTIME_MS = 60000
 
 Balancer.timeSinceLastCheck = Balancer.INTERVAL_MS
 Balancer.stonesDefaultApplied = false
+
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("balancer")
+end
+
+local function isLocked(key)
+    if Settings == nil then
+        return true
+    end
+
+    local value = Settings.get("balancer", key)
+
+    if value == nil then
+        return true
+    end
+
+    return value == true
+end
 
 local function log(message)
     if Realism ~= nil and Realism.log ~= nil then
@@ -94,7 +128,7 @@ function Balancer.applyStonesDefault()
 
     Balancer.stonesDefaultApplied = true
 
-    if not isNewGame(missionInfo) then
+    if not isNewGame(missionInfo) or not Balancer.DISABLE_STONES_ON_NEW_GAME then
         return
     end
 
@@ -114,27 +148,33 @@ function Balancer.enforce()
 
     local changed = 0
 
-    for _, name in ipairs(Balancer.FORCED_TRUE) do
-        changed = changed + forceField(missionInfo, name, true)
+    for _, lock in ipairs(Balancer.FORCED_TRUE) do
+        if isLocked(lock.setting) then
+            changed = changed + forceField(missionInfo, lock.field, true)
+        end
     end
 
-    for _, name in ipairs(Balancer.FORCED_FALSE) do
-        changed = changed + forceField(missionInfo, name, false)
+    for _, lock in ipairs(Balancer.FORCED_FALSE) do
+        if isLocked(lock.setting) then
+            changed = changed + forceField(missionInfo, lock.field, false)
+        end
     end
 
-    if missionInfo.helperSlurrySource ~= nil and type(missionInfo.helperSlurrySource) == "number" then
-        changed = changed + forceField(missionInfo, "helperSlurrySource", Balancer.HELPER_NO_SOURCE)
+    if isLocked("blockHelperAutoBuy") then
+        if missionInfo.helperSlurrySource ~= nil and type(missionInfo.helperSlurrySource) == "number" then
+            changed = changed + forceField(missionInfo, "helperSlurrySource", Balancer.HELPER_NO_SOURCE)
+        end
+
+        if missionInfo.helperManureSource ~= nil and type(missionInfo.helperManureSource) == "number" then
+            changed = changed + forceField(missionInfo, "helperManureSource", Balancer.HELPER_NO_SOURCE)
+        end
     end
 
-    if missionInfo.helperManureSource ~= nil and type(missionInfo.helperManureSource) == "number" then
-        changed = changed + forceField(missionInfo, "helperManureSource", Balancer.HELPER_NO_SOURCE)
-    end
-
-    if missionInfo.growthMode ~= nil and type(missionInfo.growthMode) == "number" then
+    if isLocked("forceSeasonalGrowth") and missionInfo.growthMode ~= nil and type(missionInfo.growthMode) == "number" then
         changed = changed + forceField(missionInfo, "growthMode", Balancer.GROWTH_MODE)
     end
 
-    if missionInfo.economicDifficulty ~= nil then
+    if isLocked("forceNormalEconomy") and missionInfo.economicDifficulty ~= nil then
         if type(missionInfo.economicDifficulty) == "number" then
             changed = changed + forceField(missionInfo, "economicDifficulty", Balancer.ECONOMIC_DIFFICULTY_NUMBER)
         else
@@ -142,7 +182,7 @@ function Balancer.enforce()
         end
     end
 
-    if missionInfo.disasterDestructionState ~= nil and type(missionInfo.disasterDestructionState) == "string" then
+    if isLocked("forceDisasters") and missionInfo.disasterDestructionState ~= nil and type(missionInfo.disasterDestructionState) == "string" then
         changed = changed + forceField(missionInfo, "disasterDestructionState", Balancer.DISASTER_STATE_STRING)
     end
 
@@ -158,7 +198,7 @@ function Balancer:update(dt)
 
     self.timeSinceLastCheck = 0
 
-    if g_server == nil then
+    if g_server == nil or not isEnabled() then
         return
     end
 
@@ -176,7 +216,7 @@ function Balancer.install()
         Realism.registerFeature(Balancer.NAME, Balancer)
     end
 
-    log("Balancer enabled — realism settings locked on")
+    log("Balancer installed — realism settings locked on")
 end
 
 Balancer.install()

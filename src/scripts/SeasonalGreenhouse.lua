@@ -21,7 +21,13 @@
 -- The original cyclesPer* values are cached on first touch so that
 -- repeated re-application doesn't compound. Polling runs at a fixed
 -- real-time interval (no per-frame work) and only recomputes when
--- season, weather, or production-point count actually changes.
+-- season, weather, production-point count, or the admin's settings
+-- actually change.
+--
+-- Every multiplier is configurable under Settings ("seasonalGreenhouse").
+-- Switching the feature off doesn't just stop the scaling, it re-applies a
+-- flat 1.0 so greenhouses already scaled down that session go straight back
+-- to their stock output.
 --
 
 SeasonalGreenhouse = {}
@@ -29,14 +35,29 @@ SeasonalGreenhouse.NAME = "SeasonalGreenhouse"
 
 SeasonalGreenhouse.UPDATE_INTERVAL_MS = 5000
 
-SeasonalGreenhouse.SEASON_MULTIPLIERS = {
+SeasonalGreenhouse.SEASON_KEYS = {
+    spring = "springMultiplier",
+    summer = "summerMultiplier",
+    fall = "fallMultiplier",
+    winter = "winterMultiplier",
+}
+
+SeasonalGreenhouse.WEATHER_KEYS = {
+    sun = "sunMultiplier",
+    cloud = "cloudMultiplier",
+    rain = "rainMultiplier",
+    snow = "snowMultiplier",
+    hail = "hailMultiplier",
+}
+
+SeasonalGreenhouse.SEASON_FALLBACK = {
     spring = 0.75,
     summer = 1.00,
     fall = 0.75,
     winter = 0.50,
 }
 
-SeasonalGreenhouse.WEATHER_MULTIPLIERS = {
+SeasonalGreenhouse.WEATHER_FALLBACK = {
     sun = 1.20,
     cloud = 1.00,
     rain = 0.90,
@@ -62,6 +83,39 @@ SeasonalGreenhouse.timeSinceLastCheck = 0
 SeasonalGreenhouse.lastSeason = nil
 SeasonalGreenhouse.lastWeather = nil
 SeasonalGreenhouse.lastPointCount = -1
+SeasonalGreenhouse.lastGeneration = -1
+
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("seasonalGreenhouse")
+end
+
+local function multiplier(keys, fallbacks, name)
+    local fallback = fallbacks[name] or 1.0
+
+    if Settings == nil or keys[name] == nil then
+        return fallback
+    end
+
+    local value = Settings.get("seasonalGreenhouse", keys[name])
+
+    if value == nil then
+        return fallback
+    end
+
+    return value
+end
+
+function SeasonalGreenhouse.getSeasonMultiplier(season)
+    return multiplier(SeasonalGreenhouse.SEASON_KEYS, SeasonalGreenhouse.SEASON_FALLBACK, season)
+end
+
+function SeasonalGreenhouse.getWeatherMultiplier(weather)
+    return multiplier(SeasonalGreenhouse.WEATHER_KEYS, SeasonalGreenhouse.WEATHER_FALLBACK, weather)
+end
 
 local function logChange(touched, season, seasonMult, weather, weatherMult, total)
     if Realism == nil or Realism.log == nil then
@@ -273,10 +327,18 @@ function SeasonalGreenhouse.applyMultipliers()
 
     local season = SeasonalGreenhouse.getCurrentSeason()
     local weather = SeasonalGreenhouse.getCurrentWeather()
-    local seasonMult = SeasonalGreenhouse.SEASON_MULTIPLIERS[season] or 1.0
-    local weatherMult = SeasonalGreenhouse.WEATHER_MULTIPLIERS[weather] or 1.0
+    local seasonMult = SeasonalGreenhouse.getSeasonMultiplier(season)
+    local weatherMult = SeasonalGreenhouse.getWeatherMultiplier(weather)
     local total = seasonMult * weatherMult
     local touched = 0
+
+    if not isEnabled() then
+        season = "off"
+        weather = "off"
+        seasonMult = 1.0
+        weatherMult = 1.0
+        total = 1.0
+    end
 
     for _, prodpoint in pairs(mgr.productionPoints) do
         if SeasonalGreenhouse.isGreenhouse(prodpoint) and prodpoint.productions ~= nil then
@@ -324,14 +386,18 @@ function SeasonalGreenhouse:update(dt)
     local season = SeasonalGreenhouse.getCurrentSeason()
     local weather = SeasonalGreenhouse.getCurrentWeather()
     local count = countProductionPoints()
+    local generation = Settings ~= nil and Settings.getGeneration() or 0
 
-    if season == self.lastSeason and weather == self.lastWeather and count == self.lastPointCount then
+    if season == self.lastSeason and weather == self.lastWeather
+        and count == self.lastPointCount and generation == self.lastGeneration then
+
         return
     end
 
     self.lastSeason = season
     self.lastWeather = weather
     self.lastPointCount = count
+    self.lastGeneration = generation
 
     SeasonalGreenhouse.applyMultipliers()
 end

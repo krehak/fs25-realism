@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="104">
     <author>Patrik Krehák</author>
-    <version>1.0.2.0</version>
+    <version>1.1.0.0</version>
     <title>
         <en>Realism</en>
     </title>
@@ -17,7 +17,7 @@ Features:
   When you begin a brand-new save, a short intro explains the rules you signed up for. You build your farm from there, the hard way.
 
 - Disabled teleporting
-  You can no longer press Tab or Shift+Tab to switch between vehicles, you can't jump into a vehicle picked from the in-game map unless you are standing right next to it, and the map's "Visit" / "Go To" option for fields and buildings no longer teleports you. To get anywhere you have to physically walk or drive there. Plan your routes, park sensibly, and respect the distance — like a real farmer would.
+  You can no longer press Tab or Shift+Tab to switch between vehicles, you can't jump into a vehicle picked from the in-game map unless you are standing right next to it, and the map's "Visit" / "Go To" no longer teleports you to a field, a building or an NPC. To get anywhere you have to physically walk or drive there. Plan your routes, park sensibly, and respect the distance — like a real farmer would.
 
 - Seasonal greenhouse production
   Greenhouses no longer produce at a constant rate. Output scales with the time of year and the current weather:
@@ -31,15 +31,38 @@ Features:
 - Inflation
   Like the real economy, prices drift up over time. Every year a random inflation rate between 1.5% and 5.5% is set and held for that whole year, compounding across years. It applies to BOTH buying and selling — inputs, fuel and machinery get pricier, but crops and goods are also worth more. That means you can invest: store wheat now and sell it years later at a higher, inflated price. The current year's rate is announced on screen.
 
+- Supply and demand
+  A market driven by rates, the way a real one works. Every market good has a demand rate — how much of it the world absorbs each month at full price — and your farms feed it a supply rate. The price chases the ratio, losing a fixed 10 points every time supply DOUBLES past demand:
+    * supply at or under demand -> 100%
+    * supply = 2x demand -> 90%
+    * supply = 4x demand -> 80%
+    * supply = 8x demand -> 70%, and so on down to a floor of 55%
+  A constant cost per doubling keeps the curve gentle right where farms actually live, instead of falling off a cliff the moment you tip past balance.
+  Selling LESS than the market wants is just normal trade, priced at 100%. The premium above 100% is not paid for being small — it is paid for being ABSENT. A product only starts to climb after three months with no sale at all, then rises about 2 points a month to the 120% cap; a single delivery drops it straight back to 100%. So a smallholder shipping a trickle of milk every month gets the normal price, never a bonus, and the premium belongs to the crop nobody is growing.
+  Because both sides are RATES, selling the same amount every month does not let the price recover between deliveries — a steady stream of lettuce holds lettuce down for as long as it keeps coming. It only climbs back when the flow slows or stops, and even then it takes months.
+
+  The market covers three product families and nothing else, because the goal is to blunt the handful of earners that scale without effort — not to price the whole economy. Each one's market is sized by how much WORK its money costs:
+    * Greenhouse produce (lettuce, tomatoes, strawberries and whatever else the greenhouses on your map make) — 35,000 a month. Plant once, add water, collect pallets forever: the easiest money in the game, so still the tightest of the three. Nine greenhouses of one crop still sell at the full price; twelve sit at 98%, eighteen at 92%, thirty at 84% and sixty at 74%.
+    * Wood products (planks, long planks, beams, wood chips) — 50,000 a month. Real work: fell, delimb, haul, cut, chip. Selling 100,000 a month of planks still gets 89%. RAW LOGS ARE NOT INCLUDED — they are worth little per litre and moving them is already the job.
+    * Animal produce (milk, eggs, wool, honey and the dairy made from them) — 100,000 a month, the most generous of the three, because a herd is the most demanding thing on a farm to keep running. A 200-cow dairy turning its milk into butter sells at the full 100%; you would need 200,000 a month before it reached 88%.
+  Every individual product has its own market, so lettuce and tomatoes do not compete, and neither do planks and chips. Splitting production across several products keeps all of them near 100% — the feature punishes monoculture, not scale.
+
+  FIELD CROPS ARE NOT AFFECTED. A silo holds grain indefinitely at no cost, so there is no glut to model: you simply store it until you want the money. Wheat, barley, canola, maize and the rest always trade at exactly the price the game sets. So does every other good — bricks, bread, cans, flour, sugar, fabric. Untracked products never move in either direction, so the scarcity premium is likewise confined to those same three families.
+
+  Greenhouse produce is detected from the greenhouse buildings actually on your map, so modded greenhouses and their fruit are covered without a list. Wood and animal produce are matched by name, and anything a mod adds can be pulled in with a one-line entry naming its class.
+
+  Hoarding does not beat the market. The price drops as the load comes off the trailer, so sitting on a product until it drifts up to the scarcity premium and then dumping a year's stock into that high price does not work — the first litres fetch the premium and the rest do not.
+
+  Everything is measured in in-game months, so the market feels the same whether a month is one day or ten. In multiplayer the whole server shares one market — you and your friends all press on the same prices. You are told when a product you trade becomes flooded, and when it recovers into demand again; goods you have never touched stay silent. Market state is saved with your savegame, and every rate is tunable in the savegame's own folder (savegame<N>/realism.xml).
+
 - Production store-only (no auto-sell or auto-distribute)
   Production buildings can no longer automatically sell or distribute their output. Every product is forced to "store" mode and piles up in the building's storage. To turn it into money you must drive a trailer over, load the goods, and haul them to a sell point or another production yourself. Manage your own supply chain.
 
-  Products that no vehicle can ever carry are the exception and stay freely configurable — the base game biogas plant (methane, electricity) and closed-system mods such as PlanET Modular BGA, where each module feeds the next through custom fill types no trailer accepts. Locking those would deadlock the chain instead of creating hauling work. Detection is automatic; you can also list mods or fill types by hand in modSettings/FS25_Realism/productionStoreOnly.xml.
+  Products that no vehicle can ever carry are the exception and stay freely configurable — the base game biogas plant (methane, electricity) and closed-system mods such as PlanET Modular BGA, where each module feeds the next through custom fill types no trailer accepts. Locking those would deadlock the chain instead of creating hauling work. Detection is automatic; you can also list mods or fill types by hand in the savegame's own folder (savegame<N>/realism.xml).
 
-- Bulk trade bonuses
-  Moving goods in volume pays off, like a real wholesale deal.
-    * Selling: the more you sell in one go, the bigger the bonus on top of the price. Starts at +1% once a sale reaches 25,000 litres and ramps to +10% at 100,000 litres or more.
-    * Buying: filling up on fertilizer, lime, seeds, herbicide or fuel in bulk earns a discount. Starts at -1% from 1,000 litres and ramps to -8% at 10,000 litres or more.
+- Bulk buying discounts
+  Buying in volume pays off, like a real wholesale deal. Filling up on fertilizer, lime, seeds, herbicide or fuel in bulk earns a discount: it starts at -1% from 5,000 litres and ramps to -10% at 35,000 litres or more, accumulating per station and fill type over one continuous refill.
+  There is no matching bonus for selling in bulk. What a load is worth is decided entirely by supply and demand — paying a volume bonus on top would reward exactly the dumping that is supposed to depress the price.
 
 - Balancer (locked realism settings)
   Realism-critical game settings can't be softened. Economy difficulty is forced to Normal (no Easy), and traffic, seasonal growth, snow, crop destruction, periodical plowing, required lime, weeds and disasters are all forced on. Change them in the menu and they revert automatically. Field stones are the exception: they are turned off by default when you start a new game, but you are free to switch them back on and they will stay on. AI helpers also never auto-buy fuel, seeds, fertilizer or manure/slurry — you have to refill their vehicles yourself.
@@ -52,6 +75,25 @@ Features:
 
 - Log weight in multiplayer
   The game only calculates a log's mass on the server, so forestry info mods hide the weight from every player who is not the host. Realism syncs each wood species' density from the server to all clients and shows a Mass line in the log info box for joined players too, so nobody has to guess how heavy a log is.
+
+- Honest wood chips
+  Chipping a log no longer creates wood out of thin air. In the base game a tree worth 20,000 litres of wood goes into the chipper and 60,000 litres of chips come out — the volume is simply tripled. Here a log yields its own volume in chips, 1 : 1, so chipping is worth doing for what it actually is (turning awkward branches into something a trailer can carry and a heating plant will buy) instead of tripling your timber on the way out of the forest.
+
+- Server settings
+  Every setting is in the game's own Settings page, grouped under Realism headings alongside the settings you already know, so nothing has to be edited by hand. Only the host or an admin can change them; for everyone else the rows are shown but greyed out, and switching a feature off greys out the rows beneath it.
+  The same values also live in one file, the savegame's own folder (savegame<N>/realism.xml), written with commented defaults the first time that save runs. Teleporting, seasonal greenhouses, the supply-and-demand market, store-only productions, bulk discounts, the locked settings, chainsaw stump removal and AI crop damage can each be switched off or retuned, and every one of the balancer's locks can be released on its own. In multiplayer the server's file is the one that counts: joining players are sent its values and any later change reaches them immediately, without reconnecting.
+
+  Settings can also be changed live from the console — the dedicated server's web console, or the in-game console of the host or an admin — so nobody has to restart a session to fix a problem:
+
+    rlSettings                        list every option and its value
+    rlSet <feature> <key> <value>     change it until the server restarts
+    rlSetSave <feature> <key> <value> change it and write it to the file
+    rlSettingsSave                    write all current values to the file
+    rlSettingsReload                  re-read the file and apply it
+
+  So when a player gets stuck in the terrain, "rlSet disableTeleport enabled false" lets them out and "rlSet disableTeleport enabled true" puts the rule back a minute later. A change requested by a player who is not an admin is ignored.
+
+  Four things have no switch, on purpose, because turning them off would make this a different mod: the intro, inflation, honest wood chips and multiplayer log mass.
 
 More realism features will be added in future updates, each as a self-contained module that can be enabled or disabled independently.
 
@@ -69,34 +111,37 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
 
     <extraSourceFiles>
         <sourceFile filename="scripts/Realism.lua" />
+        <sourceFile filename="scripts/Settings.lua" />
+        <sourceFile filename="scripts/SettingsMenu.lua" />
         <sourceFile filename="scripts/DisableTeleport.lua" />
         <sourceFile filename="scripts/SeasonalGreenhouse.lua" />
         <sourceFile filename="scripts/Inflation.lua" />
         <sourceFile filename="scripts/ProductionStoreOnly.lua" />
         <sourceFile filename="scripts/BulkTrade.lua" />
+        <sourceFile filename="scripts/SupplyDemand.lua" />
         <sourceFile filename="scripts/Balancer.lua" />
         <sourceFile filename="scripts/StumpCutter.lua" />
         <sourceFile filename="scripts/WoodMass.lua" />
-        <!--<sourceFile filename="scripts/CarryGrip.lua" />-->
+        <sourceFile filename="scripts/WoodChips.lua" />
         <sourceFile filename="scripts/AICropDamage.lua" />
         <sourceFile filename="scripts/GameStart.lua" />
     </extraSourceFiles>
 
     <l10n>
-        <text name="realism_title">
-            <en>Realism</en>
-        </text>
-        <text name="realism_teleport_blocked">
-            <en>Vehicle teleporting is disabled — walk to the vehicle.</en>
-        </text>
         <text name="realism_intro_title">
             <en>Welcome to Realism</en>
         </text>
         <text name="realism_intro_body">
-            <en>This mod makes farming authentic and hard. No teleporting, inflation, no auto-selling, locked realism settings. Your starting money, vehicle and field are whatever the map you picked gives you — build your farm from there, the hard way.</en>
+            <en>This mod makes farming authentic and hard. No teleporting, inflation, a supply-and-demand market that punishes selling the same product over and over, no auto-selling, locked realism settings. Your starting money, vehicle and field are whatever the map you picked gives you — build your farm from there, the hard way.</en>
         </text>
         <text name="realism_mass">
             <en>Mass</en>
+        </text>
+        <text name="realism_sd_oversupplied">
+            <en>Market flooded: %s now sells for %d%% of its normal price</en>
+        </text>
+        <text name="realism_sd_demand">
+            <en>In demand again: %s now sells for %d%% of its normal price</en>
         </text>
     </l10n>
 </modDesc>

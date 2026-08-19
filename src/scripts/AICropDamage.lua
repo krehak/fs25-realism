@@ -29,8 +29,16 @@ local function log(message)
     end
 end
 
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("aiCropDamage")
+end
+
 local function allowAIFoliageDestruction(self, superFunc, dt, allowFoliageDestruction)
-    if not allowFoliageDestruction then
+    if not allowFoliageDestruction and isEnabled() then
         local mission = g_currentMission
 
         if mission ~= nil and mission.missionInfo ~= nil and mission.missionInfo.fruitDestruction then
@@ -54,7 +62,7 @@ function AICropDamage.install()
             Realism.registerFeature(AICropDamage.NAME, AICropDamage)
         end
 
-        log("AI crop destruction enabled (workers damage crops with wrong tyres)")
+        log("AI crop destruction installed (workers damage crops with wrong tyres)")
     else
         log("WheelDestruction.update not found — AI crop damage unavailable")
     end

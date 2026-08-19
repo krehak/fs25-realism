@@ -4,6 +4,13 @@
 -- Stops the player from instantly switching to / teleporting into a
 -- vehicle they are not physically next to.
 --
+-- ONE switch, not four. The three guards below are the same rule wearing
+-- different hats — reach a vehicle you are not standing beside — and leaving
+-- any one of them open defeats the other two, because Tab, the map's enter,
+-- and the map's Visit all end up doing the same thing. Splitting them only
+-- created settings that appeared to do nothing: allowing Tab while the enter
+-- guard still refused a distant vehicle looked exactly like a broken switch.
+--
 --   1. The SWITCH_VEHICLE / SWITCH_VEHICLE_BACK input actions (Tab and
 --      Shift+Tab) are deactivated, so cycling between vehicles does
 --      nothing and the prompt is hidden.
@@ -11,7 +18,7 @@
 --      vehicle picked from the in-game map (which would teleport you to
 --      a remote vehicle) is rejected when it is too far away.
 --   3. Player:teleportTo rejects any jump of the local player further than
---      MAX_TELEPORT_DISTANCE, which is what the map's "Visit" / "Go To"
+--      maxTeleportDistance, which is what the map's "Visit" / "Go To"
 --      does on a field, building or NPC.
 --
 -- Walking up to a vehicle and pressing E still works — the game already
@@ -47,13 +54,75 @@
 -- Both hooks are installed defensively (only when the target really is a
 -- function) so a future game patch can't turn this into a hard error.
 --
+-- Everything here is read live from Settings ("disableTeleport"), never
+-- cached at install time, so an admin can hand teleporting back to a stuck
+-- player mid-session and take it away again a minute later. Because the Tab
+-- block works by deactivating already-registered action events, the ids it
+-- has touched are remembered and reactivated the moment the switch flips
+-- back, instead of staying dead until the next vehicle change.
+--
 
 DisableTeleport = {}
 DisableTeleport.NAME = "DisableTeleport"
+
+-- Distances in metres, deliberately not exposed as settings. They are the
+-- line between "standing next to it" and "teleporting", which is the whole
+-- point of the feature; a server that widens them has simply turned
+-- teleporting back on, and there is already a switch for that.
 DisableTeleport.ENTER_DISTANCE = 8.0
-DisableTeleport.gameStarted = false
 DisableTeleport.MAX_TELEPORT_DISTANCE = 50.0
+
+-- The map's Visit / Go To sends the player to a field, a building or an NPC.
+-- Fields and buildings arrive through Player:teleportTo and are caught by the
+-- distance rule. Visiting an NPC does not: the game has a dedicated
+-- teleportToNPC for it, which is why nothing keyed off distance or off the
+-- click handler ever saw it.
+--
+-- It is blocked outright rather than by distance. A function whose only
+-- purpose is "put the player next to that NPC" is the thing being disabled;
+-- there is no near-enough case where it should still fire.
+--
+-- Its two siblings are deliberately NOT touched: teleportToExitPoint is how
+-- you get out of a vehicle and teleportToSpawnPoint is how you respawn.
+-- Blocking either would strand the player.
+DisableTeleport.ALWAYS_BLOCKED = { "teleportToNPC" }
+
+-- Both the player and its mover expose the same call; whichever the game
+-- routes through, it is covered.
+DisableTeleport.MOVER_CLASSES = { "PlayerMover", "PlayerStateMachine", "PlayerController" }
+
+-- Flip to true and rebuild to have the player / map-frame / mover APIs of the
+-- running game written to log.txt. That is how teleportToNPC was found, and
+-- it is how the next rename will be.
+DisableTeleport.PROBE_API = false
+
+DisableTeleport.hookedBlocks = {}
+DisableTeleport.probed = false
+
+DisableTeleport.gameStarted = false
 DisableTeleport.pendingBlocked = {}
+DisableTeleport.knownEventIds = {}
+DisableTeleport.switchBlockApplied = nil
+
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("disableTeleport")
+end
+
+function DisableTeleport.getEnterDistance()
+    return DisableTeleport.ENTER_DISTANCE
+end
+
+function DisableTeleport.getMaxTeleportDistance()
+    return DisableTeleport.MAX_TELEPORT_DISTANCE
+end
+
+function DisableTeleport.isSwitchBlocked()
+    return isEnabled()
+end
 
 local blockedActions = {}
 
@@ -113,7 +182,9 @@ local function isPlayerNearVehicle(player, vehicle)
     local dy = py - vy
     local dz = pz - vz
 
-    return (dx * dx + dy * dy + dz * dz) <= (DisableTeleport.ENTER_DISTANCE * DisableTeleport.ENTER_DISTANCE)
+    local range = DisableTeleport.getEnterDistance()
+
+    return (dx * dx + dy * dy + dz * dz) <= (range * range)
 end
 
 -- Remember the event id (2nd return) without disturbing the return list.
@@ -122,6 +193,7 @@ local function recordBlocked(...)
 
     if actionEventId ~= nil then
         DisableTeleport.pendingBlocked[#DisableTeleport.pendingBlocked + 1] = actionEventId
+        DisableTeleport.knownEventIds[actionEventId] = true
     end
 
     return ...
@@ -135,7 +207,14 @@ local function suppressSwitchRegister(self, superFunc, inputActionId, ...)
     return recordBlocked(superFunc(self, inputActionId, ...))
 end
 
-local function applyPendingBlocks()
+local function setEventActive(actionEventId, active)
+    pcall(function()
+        g_inputBinding:setActionEventActive(actionEventId, active)
+        g_inputBinding:setActionEventTextVisibility(actionEventId, active)
+    end)
+end
+
+local function applyPendingBlocks(blocked)
     local pending = DisableTeleport.pendingBlocked
 
     if #pending == 0 then
@@ -144,20 +223,34 @@ local function applyPendingBlocks()
 
     DisableTeleport.pendingBlocked = {}
 
-    if g_inputBinding == nil then
+    if g_inputBinding == nil or not blocked then
         return
     end
 
     for _, actionEventId in ipairs(pending) do
-        pcall(function()
-            g_inputBinding:setActionEventActive(actionEventId, false)
-            g_inputBinding:setActionEventTextVisibility(actionEventId, false)
-        end)
+        setEventActive(actionEventId, false)
+    end
+end
+
+-- Re-applies the switch block to every event id seen so far. Used when the
+-- setting flips, so releasing the block brings Tab back immediately rather
+-- than at the next action-event registration.
+local function reapplySwitchBlock(blocked)
+    DisableTeleport.pendingBlocked = {}
+
+    if g_inputBinding == nil then
+        return
+    end
+
+    for actionEventId in pairs(DisableTeleport.knownEventIds) do
+        setEventActive(actionEventId, not blocked)
     end
 end
 
 local function distanceCheckedEnter(self, superFunc, vehicle, ...)
-    if vehicle ~= nil and not isPlayerNearVehicle(self, vehicle) then
+    local guarded = isEnabled()
+
+    if guarded and vehicle ~= nil and not isPlayerNearVehicle(self, vehicle) then
         logBlocked("vehicle is too far away (map teleport)")
 
         return
@@ -197,10 +290,12 @@ local function teleportDistance(player, x, y, z)
 end
 
 local function guardedTeleportTo(self, superFunc, x, y, z, ...)
-    if DisableTeleport.gameStarted and isLocalControlledPlayer(self) then
+    local guarded = isEnabled()
+
+    if guarded and DisableTeleport.gameStarted and isLocalControlledPlayer(self) then
         local distance = teleportDistance(self, x, y, z)
 
-        if distance ~= nil and distance > DisableTeleport.MAX_TELEPORT_DISTANCE then
+        if distance ~= nil and distance > DisableTeleport.getMaxTeleportDistance() then
             logBlocked(string.format("player jump of %.0f m (map Visit / Go To)", distance))
 
             return
@@ -210,10 +305,82 @@ local function guardedTeleportTo(self, superFunc, x, y, z, ...)
     return superFunc(self, x, y, z, ...)
 end
 
+-- Refuses the call and returns nothing, exactly as the distance guard does.
+local function blockedMove(self, superFunc, ...)
+    if isEnabled() and DisableTeleport.gameStarted and isLocalControlledPlayer(self) then
+        logBlocked("map Visit / Go To on an NPC")
+
+        return
+    end
+
+    return superFunc(self, ...)
+end
+
+-- Written once to log.txt. If a visit still slips through, this says which
+-- functions exist to slip through, which beats another round of guessing.
+local function probeApi()
+    if not DisableTeleport.PROBE_API or DisableTeleport.probed or Realism == nil or Realism.log == nil then
+        return
+    end
+
+    DisableTeleport.probed = true
+
+    -- Lua patterns have no alternation, so the wanted substrings are just
+    -- tested one at a time.
+    local function names(tbl, wanted)
+        if type(tbl) ~= "table" then
+            return "<missing>"
+        end
+
+        local found = {}
+
+        for key, value in pairs(tbl) do
+            if type(key) == "string" and type(value) == "function" then
+                local lower = key:lower()
+
+                for _, needle in ipairs(wanted) do
+                    if lower:find(needle, 1, true) ~= nil then
+                        table.insert(found, key)
+
+                        break
+                    end
+                end
+            end
+        end
+
+        table.sort(found)
+
+        return #found > 0 and table.concat(found, ", ") or "<none>"
+    end
+
+    local MOVE = { "pos", "teleport", "move", "warp" }
+    local VISIT = { "visit", "hotspot", "goto", "click" }
+
+    Realism.log("DisableTeleport probe — Player move-ish: " .. names(Player, MOVE))
+    Realism.log("DisableTeleport probe — localPlayer fields: " .. names(g_localPlayer, MOVE))
+    Realism.log("DisableTeleport probe — mapFrame visit-ish: " .. names(InGameMenuMapFrame, VISIT))
+
+    for _, className in ipairs(DisableTeleport.MOVER_CLASSES) do
+        Realism.log(string.format("DisableTeleport probe — %s: %s", className, names(_G[className], MOVE)))
+    end
+end
+
 function DisableTeleport:update(dt)
     DisableTeleport.gameStarted = true
 
-    applyPendingBlocks()
+    probeApi()
+
+    local blocked = DisableTeleport.isSwitchBlocked()
+
+    if blocked ~= DisableTeleport.switchBlockApplied then
+        DisableTeleport.switchBlockApplied = blocked
+
+        reapplySwitchBlock(blocked)
+
+        return
+    end
+
+    applyPendingBlocks(blocked)
 end
 
 function DisableTeleport.install()
@@ -238,14 +405,41 @@ function DisableTeleport.install()
         visitGuarded = true
     end
 
+    -- The NPC visit, on whichever object the game routes it through.
+    local blocks = {}
+
+    local function blockOn(class, className)
+        if type(class) ~= "table" then
+            return
+        end
+
+        for _, name in ipairs(DisableTeleport.ALWAYS_BLOCKED) do
+            if type(class[name]) == "function" then
+                class[name] = Utils.overwrittenFunction(class[name], blockedMove)
+                table.insert(blocks, className .. ":" .. name)
+            end
+        end
+    end
+
+    blockOn(Player, "Player")
+
+    for _, className in ipairs(DisableTeleport.MOVER_CLASSES) do
+        blockOn(_G[className], className)
+    end
+
+    DisableTeleport.hookedBlocks = blocks
+
     if Realism ~= nil and Realism.registerFeature ~= nil then
         Realism.registerFeature(DisableTeleport.NAME, DisableTeleport)
     end
 
     if Realism ~= nil and Realism.log ~= nil then
         Realism.log(string.format(
-            "DisableTeleport: switch-block=%s, map-enter-guard=%s, visit-guard=%s",
-            tostring(switchBlocked), tostring(enterGuarded), tostring(visitGuarded)
+            "DisableTeleport: switch-block=%s, map-enter-guard=%s, visit-guard=%s, NPC visit blocked on: %s",
+            tostring(switchBlocked), tostring(enterGuarded), tostring(visitGuarded),
+            #DisableTeleport.hookedBlocks > 0
+                and table.concat(DisableTeleport.hookedBlocks, ", ")
+                or "NOTHING FOUND — the NPC visit will still work"
         ))
     end
 end

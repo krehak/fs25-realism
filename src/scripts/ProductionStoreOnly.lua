@@ -20,9 +20,10 @@
 --   next one through custom fill types no trailer accepts. Forcing those
 --   to KEEP does not create hauling work, it just deadlocks the chain.
 --   Such outputs stay freely configurable. They are detected
---   automatically, and can also be listed by hand in the settings file:
+--   automatically, and can also be listed by hand in the settings file,
+--   under <productionStoreOnly> in:
 --
---     modSettings/FS25_Realism/productionStoreOnly.xml
+--     savegame<N>/realism.xml
 --
 -- Implementation:
 --   1. Override ProductionPoint:setOutputDistributionMode so any request
@@ -37,8 +38,15 @@
 ProductionStoreOnly = {}
 ProductionStoreOnly.NAME = "ProductionStoreOnly"
 
-ProductionStoreOnly.CONFIG_DIRECTORY = "modSettings/FS25_Realism/"
-ProductionStoreOnly.CONFIG_FILENAME = "productionStoreOnly.xml"
+-- Closed-system auto-detection is always on. Turning it off would force
+-- products no vehicle can carry into store-only mode and deadlock the
+-- chain that produces them — a broken save, not a difficulty choice. The
+-- three exemption lists in realism.xml are how you correct it when the
+-- detection gets a product wrong.
+
+-- Flip to true and rebuild for a full report of every production output
+-- and its verdict in log.txt. A developer's tool, not a server setting.
+ProductionStoreOnly.DEBUG = false
 
 -- Fill type categories whose members can end up inside a vehicle. A
 -- product in none of them, that is not a pallet and not traded on the
@@ -52,7 +60,6 @@ ProductionStoreOnly.TRANSPORT_CATEGORIES = {
 }
 
 ProductionStoreOnly.didInitialSweep = false
-ProductionStoreOnly.config = nil
 ProductionStoreOnly.haulableSet = nil
 ProductionStoreOnly.haulableCache = {}
 ProductionStoreOnly.reportedDecisions = {}
@@ -88,105 +95,97 @@ local function getFillTypeName(fillTypeId)
 end
 
 -- ---------------------------------------------------
--- Settings file
+-- Settings
 -- ---------------------------------------------------
+--
+-- The two switches live in realism.xml alongside every other feature; the
+-- three exemption lists are this feature's own child elements there, read
+-- and written through the Settings extras hook so an admin's hand-written
+-- <mod> / <fillType> entries survive every save.
+--
 
-local function getConfigPath()
-    if getUserProfileAppPath == nil then
-        return nil
-    end
+ProductionStoreOnly.lists = {
+    allowMods = {},
+    allowFillTypes = {},
+    forceStoreOnly = {},
+}
 
-    return getUserProfileAppPath() .. ProductionStoreOnly.CONFIG_DIRECTORY .. ProductionStoreOnly.CONFIG_FILENAME
+local function readNames(xmlFile, path, target, transform)
+    xmlFile:iterate(path, function(_, key)
+        local name = xmlFile:getString(key .. "#name")
+
+        if name ~= nil and name ~= "" then
+            target[transform(name)] = true
+        end
+    end)
 end
 
-local function writeDefaultConfig(path)
-    if XMLFile == nil or XMLFile.create == nil then
-        return
-    end
+local function readLists(xmlFile, basePath)
+    local lists = ProductionStoreOnly.lists
 
-    if createFolder ~= nil then
-        createFolder(getUserProfileAppPath() .. ProductionStoreOnly.CONFIG_DIRECTORY)
-    end
+    lists.allowMods = {}
+    lists.allowFillTypes = {}
+    lists.forceStoreOnly = {}
 
-    local xmlFile = XMLFile.create("realismProductionStoreOnlyDefault", path, "productionStoreOnly")
-
-    if xmlFile == nil then
-        return
-    end
-
-    xmlFile:setBool("productionStoreOnly#autoDetectClosedSystems", true)
-    xmlFile:setBool("productionStoreOnly#debug", false)
-    xmlFile:setString("productionStoreOnly.closedSystemMods#help", "<mod name=\"FS25_Example\"/> — every output of this mod's productions may sell/distribute freely")
-    xmlFile:setString("productionStoreOnly.closedSystemFillTypes#help", "<fillType name=\"EXAMPLE\"/> — this product may sell/distribute freely everywhere")
-    xmlFile:setString("productionStoreOnly.storeOnlyFillTypes#help", "<fillType name=\"EXAMPLE\"/> — this product is always forced to store, overriding auto-detection")
-
-    xmlFile:save()
-    xmlFile:delete()
-
-    log("Created settings file: " .. path)
+    readNames(xmlFile, basePath .. ".closedSystemMods.mod", lists.allowMods, string.lower)
+    readNames(xmlFile, basePath .. ".closedSystemFillTypes.fillType", lists.allowFillTypes, string.upper)
+    readNames(xmlFile, basePath .. ".storeOnlyFillTypes.fillType", lists.forceStoreOnly, string.upper)
 end
 
-local function loadConfig()
-    local config = {
-        autoDetect = true,
-        debug = false,
-        allowMods = {},
-        allowFillTypes = {},
-        forceStoreOnly = {},
-    }
+local function writeNames(xmlFile, path, source)
+    local index = 0
 
-    local path = getConfigPath()
+    for name in pairs(source) do
+        xmlFile:setString(string.format("%s(%d)#name", path, index), name)
+        index = index + 1
+    end
+end
 
-    if path == nil or XMLFile == nil or XMLFile.loadIfExists == nil then
-        return config
+local function writeLists(xmlFile, basePath)
+    local lists = ProductionStoreOnly.lists
+
+    writeNames(xmlFile, basePath .. ".closedSystemMods.mod", lists.allowMods)
+    writeNames(xmlFile, basePath .. ".closedSystemFillTypes.fillType", lists.allowFillTypes)
+    writeNames(xmlFile, basePath .. ".storeOnlyFillTypes.fillType", lists.forceStoreOnly)
+
+    xmlFile:setString(basePath .. ".closedSystemMods#help", "<mod name=\"FS25_Example\"/> — every output of this mod's productions may sell/distribute freely")
+    xmlFile:setString(basePath .. ".closedSystemFillTypes#help", "<fillType name=\"EXAMPLE\"/> — this product may sell/distribute freely everywhere")
+    xmlFile:setString(basePath .. ".storeOnlyFillTypes#help", "<fillType name=\"EXAMPLE\"/> — this product is always forced to store, overriding auto-detection")
+end
+
+if Settings ~= nil then
+    Settings.registerExtra("productionStoreOnly", { read = readLists, write = writeLists })
+end
+
+local function setting(key, fallback)
+    if Settings == nil then
+        return fallback
     end
 
-    local xmlFile = XMLFile.loadIfExists("realismProductionStoreOnly", path)
+    local value = Settings.get("productionStoreOnly", key)
 
-    if xmlFile == nil then
-        writeDefaultConfig(path)
-
-        return config
+    if value == nil then
+        return fallback
     end
 
-    config.autoDetect = xmlFile:getBool("productionStoreOnly#autoDetectClosedSystems", config.autoDetect)
-    config.debug = xmlFile:getBool("productionStoreOnly#debug", config.debug)
+    return value
+end
 
-    xmlFile:iterate("productionStoreOnly.closedSystemMods.mod", function(_, key)
-        local name = xmlFile:getString(key .. "#name")
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
 
-        if name ~= nil and name ~= "" then
-            config.allowMods[name:lower()] = true
-        end
-    end)
-
-    xmlFile:iterate("productionStoreOnly.closedSystemFillTypes.fillType", function(_, key)
-        local name = xmlFile:getString(key .. "#name")
-
-        if name ~= nil and name ~= "" then
-            config.allowFillTypes[name:upper()] = true
-        end
-    end)
-
-    xmlFile:iterate("productionStoreOnly.storeOnlyFillTypes.fillType", function(_, key)
-        local name = xmlFile:getString(key .. "#name")
-
-        if name ~= nil and name ~= "" then
-            config.forceStoreOnly[name:upper()] = true
-        end
-    end)
-
-    xmlFile:delete()
-
-    return config
+    return Settings.isEnabled("productionStoreOnly")
 end
 
 local function getConfig()
-    if ProductionStoreOnly.config == nil then
-        ProductionStoreOnly.config = loadConfig()
-    end
+    local config = ProductionStoreOnly.lists
 
-    return ProductionStoreOnly.config
+    config.autoDetect = true
+    config.debug = ProductionStoreOnly.DEBUG
+
+    return config
 end
 
 -- ---------------------------------------------------
@@ -375,6 +374,10 @@ end
 -- Returns whether the output must be forced to store, plus the reason,
 -- so the decision can be traced in log.txt.
 function ProductionStoreOnly.getRestriction(productionPoint, fillTypeId)
+    if not isEnabled() then
+        return false, "feature disabled by the server"
+    end
+
     local config = getConfig()
     local fillTypeName = getFillTypeName(fillTypeId)
 
@@ -574,6 +577,14 @@ function ProductionStoreOnly:update(dt)
     local mgr = g_currentMission and g_currentMission.productionChainManager
 
     if mgr == nil or mgr.productionPoints == nil then
+        return
+    end
+
+    if not isEnabled() then
+        self.didInitialSweep = true
+
+        log("disabled by the server — production outputs left alone")
+
         return
     end
 

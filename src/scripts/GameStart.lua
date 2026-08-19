@@ -117,7 +117,8 @@ local function showIntro()
 
     local body = l10n("realism_intro_body",
         "This mod makes farming authentic and hard. No teleporting, " ..
-        "inflation, no auto-selling, locked realism settings. Your starting money, " ..
+        "inflation, a supply-and-demand market that punishes selling the same " ..
+        "product over and over, no auto-selling, locked realism settings. Your starting money, " ..
         "vehicle and field are whatever the map you picked gives you — build your " ..
         "farm from there, the hard way.")
 
