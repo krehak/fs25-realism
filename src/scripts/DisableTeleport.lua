@@ -214,6 +214,12 @@ local function setEventActive(actionEventId, active)
     end)
 end
 
+-- Applies the current block state to the Tab events registered since the last
+-- frame. When blocked they are deactivated; when not blocked they are
+-- activated, which is what brings back the on-foot "switch into a vehicle" Tab.
+-- Leaving freshly registered events untouched while unblocked left any the game
+-- had registered inactive (the on-foot switch among them) stuck that way, so
+-- Tab worked inside a vehicle but never on foot.
 local function applyPendingBlocks(blocked)
     local pending = DisableTeleport.pendingBlocked
 
@@ -223,12 +229,12 @@ local function applyPendingBlocks(blocked)
 
     DisableTeleport.pendingBlocked = {}
 
-    if g_inputBinding == nil or not blocked then
+    if g_inputBinding == nil then
         return
     end
 
     for _, actionEventId in ipairs(pending) do
-        setEventActive(actionEventId, false)
+        setEventActive(actionEventId, not blocked)
     end
 end
 

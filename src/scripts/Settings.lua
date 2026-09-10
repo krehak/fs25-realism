@@ -1113,6 +1113,19 @@ function Settings.install()
         addConsoleCommand("rlSettingsReload", "Re-read the Realism settings file", "consoleReload", Settings)
     end
 
+    -- The game rebuilds the savegame folder on every save, so realism.xml
+    -- written out-of-band when a value changes is wiped the next time the
+    -- player saves. Re-writing it from inside the save cycle — like every
+    -- other per-save file the game keeps — is what actually makes the
+    -- settings survive a reload.
+    if FSCareerMissionInfo ~= nil and FSCareerMissionInfo.saveToXMLFile ~= nil then
+        FSCareerMissionInfo.saveToXMLFile = Utils.appendedFunction(FSCareerMissionInfo.saveToXMLFile, function()
+            if isServer() then
+                Settings.save()
+            end
+        end)
+    end
+
     if Realism ~= nil and Realism.registerFeature ~= nil then
         Realism.registerFeature(Settings.NAME, Settings)
     end
