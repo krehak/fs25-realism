@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="104">
     <author>Patrik Krehák</author>
-    <version>1.1.1.0</version>
+    <version>1.2.0.0</version>
     <title>
         <en>Realism</en>
     </title>
@@ -30,6 +30,7 @@ Features:
 
 - Inflation
   Like the real economy, prices drift up over time. Every year a random inflation rate between 1.5% and 5.5% is set and held for that whole year, compounding across years. It applies to BOTH buying and selling — inputs, fuel and machinery get pricier, but crops and goods are also worth more. That means you can invest: store wheat now and sell it years later at a higher, inflated price. The current year's rate is announced on screen.
+  Can be switched off: prices then sit at their normal, non-inflated level. The yearly rate keeps being tracked underneath even while paused, so switching inflation back on resumes exactly where the real timeline already is instead of restarting from year one.
 
 - Supply and demand
   A market driven by rates, the way a real one works. Every market good has a demand rate — how much of it the world absorbs each month at full price — and your farms feed it a supply rate. The price chases the ratio, losing a fixed 10 points every time supply DOUBLES past demand:
@@ -79,9 +80,12 @@ Features:
 - Honest wood chips
   Chipping a log no longer creates wood out of thin air. In the base game a tree worth 20,000 litres of wood goes into the chipper and 60,000 litres of chips come out — the volume is simply tripled. Here a log yields its own volume in chips, 1 : 1, so chipping is worth doing for what it actually is (turning awkward branches into something a trailer can carry and a heating plant will buy) instead of tripling your timber on the way out of the forest.
 
+- Loans disabled by default
+  Taking out a bank loan in the Finances tab is free money in the base game: the one-time fee is tiny next to the amount borrowed, even for a loan of half a million. Off by default: the loan ceiling is pinned to zero, so there is nothing left to borrow and the Finances tab's own Borrow prompt stops appearing on its own. Repaying an existing loan always works, so switching this on and off never traps anyone mid-loan.
+
 - Server settings
   Every setting is in the game's own Settings page, grouped under Realism headings alongside the settings you already know, so nothing has to be edited by hand. Only the host or an admin can change them; for everyone else the rows are shown but greyed out, and switching a feature off greys out the rows beneath it.
-  The same values also live in one file, the savegame's own folder (savegame<N>/realism.xml), written with commented defaults the first time that save runs. Teleporting, seasonal greenhouses, the supply-and-demand market, store-only productions, bulk discounts, the locked settings, chainsaw stump removal and AI crop damage can each be switched off or retuned, and every one of the balancer's locks can be released on its own. In multiplayer the server's file is the one that counts: joining players are sent its values and any later change reaches them immediately, without reconnecting.
+  The same values also live in one file, the savegame's own folder (savegame<N>/realism.xml), written with commented defaults the first time that save runs. Teleporting, seasonal greenhouses, inflation, the supply-and-demand market, store-only productions, bulk discounts, the locked settings, chainsaw stump removal, AI crop damage and loans can each be switched off or retuned, and every one of the balancer's locks can be released on its own. In multiplayer the server's file is the one that counts: joining players are sent its values and any later change reaches them immediately, without reconnecting.
 
   Settings can also be changed live from the console — the dedicated server's web console, or the in-game console of the host or an admin — so nobody has to restart a session to fix a problem:
 
@@ -93,7 +97,7 @@ Features:
 
   So when a player gets stuck in the terrain, "rlSet disableTeleport enabled false" lets them out and "rlSet disableTeleport enabled true" puts the rule back a minute later. A change requested by a player who is not an admin is ignored.
 
-  Four things have no switch, on purpose, because turning them off would make this a different mod: the intro, inflation, honest wood chips and multiplayer log mass.
+  Three things have no switch, on purpose, because turning them off would make this a different mod: the intro, honest wood chips and multiplayer log mass.
 
 More realism features will be added in future updates, each as a self-contained module that can be enabled or disabled independently.
 
@@ -125,6 +129,7 @@ If you want Farming Simulator 25 to feel less like a game and more like a job, t
         <sourceFile filename="scripts/WoodChips.lua" />
         <sourceFile filename="scripts/AICropDamage.lua" />
         <sourceFile filename="scripts/GameStart.lua" />
+        <sourceFile filename="scripts/Loans.lua" />
     </extraSourceFiles>
 
     <l10n>

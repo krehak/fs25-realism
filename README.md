@@ -24,7 +24,7 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
     Plan your winter cash flow accordingly.
 
--   **Inflation** — every year a rate between **1.5% and 5.5%** is set and held for that whole year, compounding across years. It applies to *both* buying and selling: inputs, fuel and machinery get pricier, but crops and goods are worth more too — so you can invest by storing crops and selling them later at the higher, inflated price. The current year's rate is announced on screen.
+-   **Inflation** — every year a rate between **1.5% and 5.5%** is set and held for that whole year, compounding across years. It applies to *both* buying and selling: inputs, fuel and machinery get pricier, but crops and goods are worth more too — so you can invest by storing crops and selling them later at the higher, inflated price. The current year's rate is announced on screen. Can be switched off: prices then sit at their normal, non-inflated level, but the yearly rate keeps being tracked underneath — switching it back on resumes exactly where the real timeline already is, instead of restarting from year one.
 
 -   **Supply and demand** — a market driven by *rates*, the way a real one works. Every market good has a **demand rate** (how much money's worth the world absorbs each in-game month) and your farms feed it a **supply rate**. The price chases the ratio, losing a fixed **10 points every time supply doubles** past demand:
 
@@ -143,6 +143,8 @@ Singleplayer and multiplayer are both supported. In multiplayer, every player ne
 
 -   **Honest wood chips** — chipping a log no longer creates wood out of thin air. In the base game a tree worth 20,000 L of wood goes into the chipper and **60,000 L** of chips come out; the volume is simply tripled. Here a log yields its own volume in chips, **1 : 1**, so chipping is worth doing for what it actually is — turning awkward branches into something a trailer can carry and a heating plant will buy — instead of tripling your timber on the way out of the forest. This one has no switch: it's a fix for a base-game bug that mints wood out of nothing, not a difficulty dial.
 
+-   **Loans disabled by default** — taking out a bank loan from the Finances tab is free money in the base game: the one-time fee barely scales with the amount borrowed, even for half a million. Off by default: the loan ceiling is pinned to zero, so there's nothing left to borrow and the Finances tab's own Borrow prompt stops appearing on its own. Repaying an existing loan always works, so switching this on and off never traps anyone mid-loan.
+
 More realism features will be added in future updates, each as a self-contained module.
 
 ## Server settings
@@ -176,10 +178,12 @@ If you already tuned the old `supplyDemand.xml` or `productionStoreOnly.xml`, yo
 | `balancer` | `enabled` | every lock separately: `forceTraffic`, `forceSnow`, `forceCropDestruction`, `forcePeriodicalPlowing`, `forceWeeds`, `forceLimeRequired`, `forceSeasonalGrowth`, `forceNormalEconomy`, `forceDisasters`, `blockHelperAutoBuy` |
 | `stumpCutter` | `enabled` | — |
 | `aiCropDamage` | `enabled` | — |
+| `inflation` | `enabled` | — the yearly rate keeps being tracked while off, so turning it back on doesn't restart the timeline |
+| `loans` | `enabled` | — off by default; repaying an existing loan always works regardless |
 
 Everything else is a constant in its own script: teleport distances, the stump grind time, the bulk-buy session gap, closed-system auto-detection, the new-game field-stone default and the debug reports. They set what the feature *is* rather than how hard it is, so they are not server knobs.
 
-**Four features have no switch, on purpose** — turning them off would make this a different mod: the intro, inflation, honest wood chips and multiplayer log mass.
+**Three features have no switch, on purpose** — turning them off would make this a different mod: the intro, honest wood chips and multiplayer log mass.
 
 ### Changing settings live
 

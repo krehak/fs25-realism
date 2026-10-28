@@ -25,6 +25,13 @@
 --   EconomyManager:getBuyPrice             (shop / vehicle / pallet buying)
 --   SellingStation:getEffectiveFillTypePrice (selling)
 --
+-- The yearly rate is tracked regardless of the "inflation.enabled" setting —
+-- the year keeps advancing and the multiplier keeps compounding underneath
+-- even while switched off. Only whether that multiplier is actually APPLIED
+-- to a price is gated on the setting, so pausing inflation freezes prices at
+-- their normal level without losing the timeline, and switching it back on
+-- resumes exactly where the real year count already is.
+--
 
 Inflation = {}
 Inflation.NAME = "Inflation"
@@ -99,6 +106,26 @@ function Inflation.getMultiplier()
     return Inflation.cachedMultiplier
 end
 
+local function isEnabled()
+    if Settings == nil then
+        return true
+    end
+
+    return Settings.isEnabled("inflation")
+end
+
+-- The multiplier actually applied to a price. Tracking (getMultiplier, the
+-- yearly announcement) always runs; only this is gated on the setting, so
+-- turning inflation off freezes prices at normal while the real timeline
+-- keeps moving underneath.
+function Inflation.getEffectiveMultiplier()
+    if not isEnabled() then
+        return 1.0
+    end
+
+    return Inflation.getMultiplier()
+end
+
 -- Scale only the first return value (the price) by the multiplier while
 -- preserving every other value the wrapped function returns. Truncating
 -- extra returns to a single value crashes callers that expect them (e.g.
@@ -114,15 +141,15 @@ local function scaleReturns(multiplier, ...)
 end
 
 local function inflatedGetPricePerLiter(self, superFunc, ...)
-    return scaleReturns(Inflation.getMultiplier(), superFunc(self, ...))
+    return scaleReturns(Inflation.getEffectiveMultiplier(), superFunc(self, ...))
 end
 
 local function inflatedGetEffectiveFillTypePrice(self, superFunc, ...)
-    return scaleReturns(Inflation.getMultiplier(), superFunc(self, ...))
+    return scaleReturns(Inflation.getEffectiveMultiplier(), superFunc(self, ...))
 end
 
 local function inflatedGetBuyPrice(self, superFunc, ...)
-    return scaleReturns(Inflation.getMultiplier(), superFunc(self, ...))
+    return scaleReturns(Inflation.getEffectiveMultiplier(), superFunc(self, ...))
 end
 
 local function notify(text)
@@ -157,9 +184,14 @@ function Inflation:update(dt)
 
         local rate = Inflation.getYearRate(year)
         local multiplier = Inflation.getMultiplier()
+        local paused = not isEnabled()
+        local suffix = paused and " — paused, prices stay normal" or ""
 
-        log(string.format("Year %d inflation: +%.1f%% (cumulative prices x%.2f)", year, rate * 100, multiplier))
-        notify(string.format("Inflation this year: +%.1f%% (prices x%.2f)", rate * 100, multiplier))
+        log(string.format("Year %d inflation: +%.1f%% (cumulative prices x%.2f)%s", year, rate * 100, multiplier, suffix))
+
+        if not paused then
+            notify(string.format("Inflation this year: +%.1f%% (prices x%.2f)", rate * 100, multiplier))
+        end
     end
 end
 

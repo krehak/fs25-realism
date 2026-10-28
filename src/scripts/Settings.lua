@@ -18,9 +18,9 @@
 -- realism.xml yet, so nobody's tuning is lost on the way in.
 --
 -- Not everything is configurable on purpose. The features that define what
--- this mod IS — the intro, inflation, honest wood chips and multiplayer log
--- mass — have no switch and no numbers: turning them off would make the
--- mod something else. Everything else can be switched off and retuned.
+-- this mod IS — the intro, honest wood chips and multiplayer log mass — have
+-- no switch and no numbers: turning them off would make the mod something
+-- else. Everything else can be switched off and retuned.
 --
 -- Multiplayer
 --   The SERVER's file is authoritative. A client loads its own copy so
@@ -123,6 +123,14 @@ Settings.SCHEMA = {
         },
     },
     {
+        name = "inflation",
+        title = "Realism — Inflation",
+        help = "Economy-wide inflation. The yearly rate keeps being tracked underneath even while this is off, so switching it back on resumes exactly where the real timeline already is instead of restarting from year one.",
+        options = {
+            { key = "enabled", type = Settings.TYPE_BOOL, default = true, label = "Inflation", tooltip = "Prices drift up year over year. Switched off, prices sit at their normal, non-inflated level." },
+        },
+    },
+    {
         name = "productionStoreOnly",
         title = "Realism — Productions",
         help = "Productions may only store their output. Closed-system exemptions live in the child elements below.",
@@ -176,6 +184,14 @@ Settings.SCHEMA = {
         help = "Hired helpers flatten crops with the wrong tyres, exactly like the player does.",
         options = {
             { key = "enabled", type = Settings.TYPE_BOOL, default = true, label = "AI crop damage", tooltip = "Hired helpers flatten crops with the wrong tyres." },
+        },
+    },
+    {
+        name = "loans",
+        title = "Realism — Loans",
+        help = "The bank loan in the Finances tab. The fee for taking one out is tiny next to the sum borrowed, so a loan is free money rather than a real decision. Off by default: the loan ceiling is pinned to zero, so the Finances tab's own Borrow prompt stops appearing on its own. Repaying an existing loan is always allowed, so switching this off never traps anyone who already borrowed.",
+        options = {
+            { key = "enabled", type = Settings.TYPE_BOOL, default = false, label = "Allow taking out loans", tooltip = "Lets the loan ceiling be above zero, so the Finances tab's Borrow prompt can take out a new loan. Off by default. Repaying an existing loan always works, regardless of this setting." },
         },
     },
 }
@@ -444,7 +460,7 @@ local function writeAllSections(xmlFile, withExtras)
     xmlFile:setString(Settings.ROOT .. "#help",
         "Realism settings. In multiplayer THIS FILE ON THE SERVER wins; clients receive these values on join. " ..
         "Change them live with the rlSet / rlSettings console commands. " ..
-        "Features with no entry here (intro, inflation, wood chips, log mass) are deliberately not configurable.")
+        "Features with no entry here (intro, wood chips, log mass) are deliberately not configurable.")
 end
 
 -- Creates the file from scratch, including the list sections. Only used
@@ -1020,7 +1036,7 @@ function Settings:consoleList(featureName)
         end
     end
 
-    lines[#lines + 1] = "  not configurable: intro, inflation, wood chips, log mass"
+    lines[#lines + 1] = "  not configurable: intro, wood chips, log mass"
     lines[#lines + 1] = "  rlSet <feature> <key> <value> — change now; rlSetSave — change and keep"
 
     return table.concat(lines, "\n")

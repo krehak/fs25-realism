@@ -10,7 +10,7 @@
 Realism = {}
 Realism.MOD_NAME = g_currentModName or "FS25_Realism"
 Realism.MOD_DIRECTORY = g_currentModDirectory or ""
-Realism.VERSION = "1.1.1.0"
+Realism.VERSION = "1.2.0.0"
 
 Realism.features = {}
 
